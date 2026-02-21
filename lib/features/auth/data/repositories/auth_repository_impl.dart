@@ -53,7 +53,7 @@ class AuthRepositoryImpl implements IAuthRepository {
       return User(
         id: 1,
         kullaniciAdi: 'admin',
-        hesapSeviyesi: 'admin',
+        hesapSeviyesi: 0,
         personelId: null,
         personelAdi: 'Admin User',
         kayitTarihi: DateTime.now(),

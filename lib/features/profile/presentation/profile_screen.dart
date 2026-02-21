@@ -212,18 +212,16 @@ class ProfileScreen extends ConsumerWidget {
                                                 : AppColors.duzceGreen,
                                           ),
                                         ),
-                                        child: Text(
-                                          currentUser.isAdmin
-                                              ? 'Yönetici'
-                                              : 'Operatör',
-                                          style: TextStyle(
-                                            color: currentUser.isAdmin
-                                                ? AppColors.primary
-                                                : AppColors.duzceGreen,
-                                            fontWeight: FontWeight.bold,
-                                            fontSize: 14,
+                                          child: Text(
+                                            currentUser.roleLabel,
+                                            style: TextStyle(
+                                              color: currentUser.isAdmin
+                                                  ? AppColors.primary
+                                                  : AppColors.duzceGreen,
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14,
+                                            ),
                                           ),
-                                        ),
                                       ),
                                       const SizedBox(height: 48),
 

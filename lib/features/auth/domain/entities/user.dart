@@ -1,23 +1,8 @@
-enum HesapSeviyesi { operator_, admin, superAdmin }
-
-extension HesapSeviyesiExtension on String {
-  HesapSeviyesi get toHesapSeviyesi {
-    switch (toLowerCase()) {
-      case 'admin':
-        return HesapSeviyesi.admin;
-      case 'superadmin':
-        return HesapSeviyesi.superAdmin;
-      case 'operator':
-      default:
-        return HesapSeviyesi.operator_;
-    }
-  }
-}
 
 class User {
   final int id;
   final String kullaniciAdi;
-  final String hesapSeviyesi;
+  final dynamic hesapSeviyesi; // Can be String or int from backend
   final int? personelId;
   final String? personelAdi;
   final DateTime kayitTarihi;
@@ -41,9 +26,34 @@ class User {
   String get username => kullaniciAdi;
   String get fullName => personelAdi ?? kullaniciAdi;
   
-  HesapSeviyesi get role => hesapSeviyesi.toHesapSeviyesi;
-  bool get isAdmin => role == HesapSeviyesi.admin || role == HesapSeviyesi.superAdmin;
-  bool get isSuperAdmin => role == HesapSeviyesi.superAdmin;
+  // 0=SuperAdmin, 1=Admin, 2=Yonetici, 3=Kullanici, 4=Misafir
+  int get level {
+    if (hesapSeviyesi is int) return hesapSeviyesi;
+    if (hesapSeviyesi is String) {
+      final s = hesapSeviyesi.toString().toLowerCase();
+      if (s.contains('superadmin')) return 0;
+      if (s.contains('admin')) return 1;
+      if (s.contains('yonetici') || s.contains('manager')) return 2;
+      if (s.contains('user') || s.contains('kullanici')) return 3;
+      if (s.contains('misafir') || s.contains('guest')) return 4;
+    }
+    return 3; // Default to normal user
+  }
+
+  bool get isAdmin => level <= 1;
+  bool get isSuperAdmin => level == 0;
+  bool get isManagerOrAbove => level <= 2;
+
+  String get roleLabel {
+    switch (level) {
+      case 0: return 'Süper Admin';
+      case 1: return 'Admin';
+      case 2: return 'Yönetici';
+      case 3: return 'Kullanıcı';
+      case 4: return 'Misafir';
+      default: return 'Kullanıcı';
+    }
+  }
 
   // These are now real fields
   DateTime? get birthDate => dogumTarihi;

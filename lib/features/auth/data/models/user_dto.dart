@@ -14,7 +14,7 @@ class UserDto extends User {
     return UserDto(
       id: json['id'] as int,
       kullaniciAdi: json['kullaniciAdi'] as String,
-      hesapSeviyesi: json['hesapSeviyesi'] as String,
+      hesapSeviyesi: json['hesapSeviyesi'], // Parse as dynamic (int or String)
       personelId: json['personelId'] as int?,
       personelAdi: json['personelAdi'] as String?,
       kayitTarihi: DateTime.parse(json['kayitTarihi'] as String),

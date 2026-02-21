@@ -121,7 +121,10 @@ class _ProductInfoCardState extends ConsumerState<ProductInfoCard> {
                       color: AppColors.textSecondary,
                       size: 18,
                     ),
-                    suffixIcon: productSearchState.isLoading
+                    suffixIcon: productSearchState.maybeWhen(
+                          loading: () => true,
+                          orElse: () => false,
+                        )
                         ? const Padding(
                             padding: EdgeInsets.all(12.0),
                             child: SizedBox(
