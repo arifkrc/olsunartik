@@ -6,7 +6,7 @@ class SubmitReworkFormUseCase {
 
   SubmitReworkFormUseCase(this._repository);
 
-  Future<int> call(ReworkForm form) {
-    return _repository.create(form);
+  Future<void> call(List<ReworkForm> forms) {
+    return _repository.createBulk(forms);
   }
 }

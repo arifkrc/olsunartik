@@ -105,7 +105,7 @@ class ConnectivityService {
     try {
       // Backend'e hafif bir health check isteği
       final response = await _dio.get(
-        '/api/health',
+        'health',
         options: Options(
           sendTimeout: Duration(seconds: 5),
           receiveTimeout: Duration(seconds: 5),

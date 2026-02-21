@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../../domain/entities/tezgah.dart';
+import '../../constants/app_constants.dart';
 
 class TezgahRemoteDataSource {
   final Dio _dio;
@@ -8,7 +9,7 @@ class TezgahRemoteDataSource {
 
   Future<List<Tezgah>> getAll() async {
     try {
-      final response = await _dio.get('/api/lookup/tezgahlar');
+      final response = await _dio.get('${ApiConstants.lookupBase}/tezgahlar');
 
       if (response.statusCode == 200) {
         final data = response.data;

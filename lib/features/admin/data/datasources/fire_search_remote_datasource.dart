@@ -37,7 +37,7 @@ class FireSearchRemoteDataSource {
       }
 
       final response = await _dio.get(
-        '/api/forms/wastage/search',
+        'forms/wastage/search',
         queryParameters: queryParams,
       );
 
@@ -72,7 +72,7 @@ class FireSearchRemoteDataSource {
       rethrow;
     } catch (e) {
       throw DioException(
-        requestOptions: RequestOptions(path: '/api/forms/wastage/search'),
+        requestOptions: RequestOptions(path: 'forms/wastage/search'),
         error: e.toString(),
         type: DioExceptionType.unknown,
       );

@@ -10,7 +10,7 @@ part 'dio_client.g.dart';
 Dio dioClient(Ref ref) {
   final dio = Dio(
     BaseOptions(
-      baseUrl: AppConstants.apiBaseUrl,
+      baseUrl: '${ApiConstants.apiBase}/',
       connectTimeout: const Duration(seconds: 10),
       receiveTimeout: const Duration(seconds: 10),
       headers: {

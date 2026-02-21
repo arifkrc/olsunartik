@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../../core/constants/app_colors.dart';
-import '../../providers/user_management_provider.dart';
+
 
 class AddUserDialog extends ConsumerStatefulWidget {
   const AddUserDialog({super.key});
@@ -19,8 +19,6 @@ class _AddUserDialogState extends ConsumerState<AddUserDialog> {
   final _phoneController = TextEditingController();
   final _relativePhoneController = TextEditingController();
   DateTime? _selectedDate;
-
-  String _selectedPermission = 'User';
 
   @override
   void dispose() {
@@ -243,33 +241,6 @@ class _AddUserDialogState extends ConsumerState<AddUserDialog> {
                 ),
                 const SizedBox(height: 16),
 
-                // Permission
-                DropdownButtonFormField<String>(
-                  initialValue: _selectedPermission,
-                  dropdownColor: AppColors.surface,
-                  style: const TextStyle(color: AppColors.textMain),
-                  decoration: InputDecoration(
-                    labelText: 'Yetki Seviyesi',
-                    labelStyle: const TextStyle(color: AppColors.textSecondary),
-                    prefixIcon: const Icon(LucideIcons.shield, size: 18),
-                    filled: true,
-                    fillColor: AppColors.background,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppColors.border),
-                    ),
-                  ),
-                  items: permissionLevels.map((permission) {
-                    return DropdownMenuItem(
-                      value: permission,
-                      child: Text(_getPermissionLabel(permission)),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() => _selectedPermission = value!);
-                  },
-                ),
-                const SizedBox(height: 24),
 
                 // Buttons
                 Row(
@@ -315,31 +286,10 @@ class _AddUserDialogState extends ConsumerState<AddUserDialog> {
     );
   }
 
-  String _getPermissionLabel(String permission) {
-    switch (permission) {
-      case 'Admin':
-        return 'Yönetici (Admin)';
-      case 'Manager':
-        return 'Yönetici (Manager)';
-      case 'User':
-        return 'Kullanıcı';
-      default:
-        return permission;
-    }
-  }
-
   void _addUser() {
     if (_formKey.currentState!.validate()) {
-      ref
-          .read(userManagementProvider.notifier)
-          .addUser(
-            kullaniciAdi: _usernameController.text,
-            hesapSeviyesi: _selectedPermission,
-            personelAdi: _fullNameController.text,
-            telefon: _phoneController.text,
-            dogumTarihi: _selectedDate,
-            yakiniTelefon: _relativePhoneController.text,
-          );
+      // Mock API logic
+      // ref.read(userManagementProvider.notifier).addUser(...);
 
       Navigator.of(context).pop();
 

@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../../domain/entities/ret_kod.dart';
+import '../../constants/app_constants.dart';
 
 /// Ret Kodu Remote DataSource
 /// GET /api/lookup/ret-kodlari
@@ -10,7 +11,7 @@ class RetKodRemoteDataSource {
 
   Future<List<RetKod>> getAll() async {
     try {
-      final response = await _dio.get('/api/lookup/ret-kodlari');
+      final response = await _dio.get('${ApiConstants.lookupBase}/ret-kodlari');
 
       if (response.statusCode == 200) {
         final data = response.data;

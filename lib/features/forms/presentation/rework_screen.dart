@@ -12,13 +12,17 @@ import '../../../core/widgets/forms/input_field_widget.dart';
 import '../../../core/providers/user_permission_provider.dart';
 import '../../auth/presentation/login_screen.dart';
 import '../../chat/presentation/shift_notes_screen.dart';
+import '../domain/entities/rework_form.dart';
+import 'providers/rework_providers.dart';
 
-/// Rework kayıt modeli
+/// Rework kayıt modeli (UI State için)
 class ReworkEntry {
-  final String id;
+  final String id; // UI'da silmek için local id
+  final int urunId;
   final String productCode;
   final String batchNo;
-  final String errorReason;
+  final int retKoduId;
+  final String errorReason; // Sadece UI gösterimi için
   final String result;
   final int quantity;
   final String? description;
@@ -26,8 +30,10 @@ class ReworkEntry {
 
   ReworkEntry({
     required this.id,
+    required this.urunId,
     required this.productCode,
     required this.batchNo,
+    required this.retKoduId,
     required this.errorReason,
     required this.result,
     required this.quantity,
@@ -47,10 +53,13 @@ class ReworkScreen extends ConsumerStatefulWidget {
 class _ReworkScreenState extends ConsumerState<ReworkScreen> {
   final String _operatorName = 'Furkan Yılmaz';
 
+  bool _isLoading = false;
+
   // Date Time
   DateTime _selectedDateTime = DateTime.now();
 
   // Product Info
+  int? _productId;
   String? _productName;
   String? _productType;
 
@@ -70,18 +79,20 @@ class _ReworkScreenState extends ConsumerState<ReworkScreen> {
   String? _selectedErrorReason;
   String? _selectedResult;
 
-  // Dropdown seçenekleri
-  final List<String> _errorReasons = [
-    'İç Çap Hatası',
-    'Dış Çap Hatası',
-    'Profil Hatası',
-    'Yüzey Kalitesi',
-    'Çapak',
-    'Darbe/Çizik',
-    'Boyut Hatası',
-    'Montaj Uyumsuzluğu',
-    'Diğer',
-  ];
+  // Dropdown seçenekleri ve Statik MAP
+  final Map<String, int> _errorReasonToIdMap = {
+    'İç Çap Hatası': 1,
+    'Dış Çap Hatası': 2,
+    'Profil Hatası': 3,
+    'Yüzey Kalitesi': 4,
+    'Çapak': 5,
+    'Darbe/Çizik': 6,
+    'Boyut Hatası': 7,
+    'Montaj Uyumsuzluğu': 8,
+    'Diğer': 9,
+  };
+
+  List<String> get _errorReasons => _errorReasonToIdMap.keys.toList();
 
   final List<String> _results = ['Tamir Edildi', 'Hurda', 'İade', 'Beklemede'];
 
@@ -100,24 +111,29 @@ class _ReworkScreenState extends ConsumerState<ReworkScreen> {
 
   void _addEntry() {
     if (_productCodeController.text.isEmpty ||
+        _productId == null ||
         _selectedErrorReason == null ||
         _selectedResult == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Lütfen tüm alanları doldurun'),
+          content: Text('Lütfen geçerli bir ürün seçin ve tüm alanları doldurun'),
           backgroundColor: AppColors.reworkOrange,
         ),
       );
       return;
     }
 
+    final int retId = _errorReasonToIdMap[_selectedErrorReason] ?? 9;
+
     setState(() {
       _entries.insert(
         0,
         ReworkEntry(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
+          urunId: _productId!,
           productCode: _productCodeController.text,
           batchNo: _batchNo,
+          retKoduId: retId,
           errorReason: _selectedErrorReason!,
           result: _selectedResult!,
           quantity: int.tryParse(_quantityController.text) ?? 1,
@@ -148,7 +164,7 @@ class _ReworkScreenState extends ConsumerState<ReworkScreen> {
     });
   }
 
-  void _saveAll() {
+  Future<void> _saveAll() async {
     if (_entries.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -159,25 +175,61 @@ class _ReworkScreenState extends ConsumerState<ReworkScreen> {
       return;
     }
 
-    setState(() {
-      _entries.clear();
-      _productCodeController.clear();
-      _quantityController.text = '1';
-      _aciklamaController.clear();
-      _selectedErrorReason = null;
-      _selectedResult = null;
-      // Reset BatchNumberPicker
-      _batchNo = '';
-      _batchNumberPickerKey = UniqueKey();
-    });
+    setState(() => _isLoading = true);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Tüm kayıtlar kaydedildi ve sıfırlandı'),
-        backgroundColor: AppColors.duzceGreen,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    try {
+      // 1. DTO'ya dönüştür
+      final formsToSubmit = _entries.map((e) {
+        return ReworkForm(
+          urunId: e.urunId,
+          adet: e.quantity,
+          retKoduId: e.retKoduId,
+          sarjNo: e.batchNo,
+          sonuc: e.result,
+        );
+      }).toList();
+
+      // 2. Provider'ı çağır
+      final useCase = ref.read(submitReworkFormUseCaseProvider);
+      await useCase.call(formsToSubmit);
+
+      // 3. Başarılı ise temizle
+      if (mounted) {
+        setState(() {
+          _entries.clear();
+          _productCodeController.clear();
+          _productId = null;
+          _productName = null;
+          _productType = null;
+          _quantityController.text = '1';
+          _aciklamaController.clear();
+          _selectedErrorReason = null;
+          _selectedResult = null;
+          _batchNo = '';
+          _batchNumberPickerKey = UniqueKey();
+          _isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Tüm kayıtlar başarıyla kaydedildi.'),
+            backgroundColor: AppColors.duzceGreen,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Hata oluştu: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -343,6 +395,7 @@ class _ReworkScreenState extends ConsumerState<ReworkScreen> {
                                         onProductCodeChanged: (code) {
                                           setState(() {
                                             if (code.isEmpty) {
+                                              _productId = null;
                                               _productName = null;
                                               _productType = null;
                                             }
@@ -350,6 +403,7 @@ class _ReworkScreenState extends ConsumerState<ReworkScreen> {
                                         },
                                         onProductSelected: (product) {
                                           setState(() {
+                                            _productId = product.id;
                                             _productName = product.urunAdi;
                                             _productType = product.urunTuru;
                                           });
@@ -488,13 +542,8 @@ class _ReworkScreenState extends ConsumerState<ReworkScreen> {
                                           (entry) => _buildEntryCard(entry),
                                         )),
                                         const SizedBox(height: 16),
-                                        ElevatedButton.icon(
-                                          onPressed: _saveAll,
-                                          icon: const Icon(
-                                            LucideIcons.save,
-                                            size: 18,
-                                          ),
-                                          label: const Text('TÜMÜNÜ KAYDET'),
+                                        ElevatedButton(
+                                          onPressed: _isLoading ? null : _saveAll,
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor:
                                                 AppColors.duzceGreen,
@@ -508,6 +557,26 @@ class _ReworkScreenState extends ConsumerState<ReworkScreen> {
                                             ),
                                             elevation: 0,
                                           ),
+                                          child: _isLoading
+                                              ? const SizedBox(
+                                                  width: 18,
+                                                  height: 18,
+                                                  child: CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                    color: Colors.white,
+                                                  ),
+                                                )
+                                              : const Row(
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  children: [
+                                                    Icon(
+                                                      LucideIcons.save,
+                                                      size: 18,
+                                                    ),
+                                                    SizedBox(width: 8),
+                                                    Text('TÜMÜNÜ KAYDET'),
+                                                  ],
+                                                ),
                                         ),
                                       ],
                                     ),

@@ -13,7 +13,7 @@ class FireKayitRemoteDataSource {
   }) async {
     try {
       final response = await _dio.get(
-        '/api/firekayitformu',
+        'firekayitformu',
         queryParameters: {'pageNumber': pageNumber, 'pageSize': pageSize},
       );
 
@@ -31,7 +31,7 @@ class FireKayitRemoteDataSource {
   }
 
   Future<FireKayitResponseDto> getForm(int id) async {
-    final response = await _dio.get('/api/firekayitformu/$id');
+    final response = await _dio.get('firekayitformu/$id');
     if (response.data['success'] == true) {
       return FireKayitResponseDto.fromJson(
         response.data['data'],
@@ -42,7 +42,7 @@ class FireKayitRemoteDataSource {
   }
 
   Future<int> createForm(FireKayitRequestDto data) async {
-    final response = await _dio.post('/api/firekayitformu', data: data.toJson());
+    final response = await _dio.post('firekayitformu', data: data.toJson());
     if (response.data['success'] == true) {
       return response.data['data']['id'];
     } else {
@@ -51,11 +51,11 @@ class FireKayitRemoteDataSource {
   }
 
   Future<void> updateForm(int id, FireKayitRequestDto data) async {
-    await _dio.put('/api/firekayitformu/$id', data: data.toJson());
+    await _dio.put('firekayitformu/$id', data: data.toJson());
   }
 
   Future<void> deleteForm(int id) async {
-    await _dio.delete('/api/firekayitformu/$id');
+    await _dio.delete('firekayitformu/$id');
   }
 
   Future<String> uploadPhoto(int id, File file) async {
@@ -65,7 +65,7 @@ class FireKayitRemoteDataSource {
     });
 
     final response = await _dio.post(
-      '/api/firekayitformu/$id/photo',
+      'firekayitformu/$id/photo',
       data: formData,
     );
 

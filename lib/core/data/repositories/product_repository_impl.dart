@@ -23,6 +23,18 @@ class ProductRepositoryImpl implements IProductRepository {
   }
 
   @override
+  Future<List<Product>> getAllRawProducts() async {
+    try {
+      final dtoList = await _remoteDataSource.getAllRawProducts();
+      return dtoList.map((dto) => dto.toEntity()).toList();
+    } on DioException catch (e) {
+      return _handleDioError(e);
+    } catch (e) {
+      throw Exception('Beklenmeyen hata: $e');
+    }
+  }
+
+  @override
   Future<List<Product>> searchProducts(String query) async {
     try {
       final dtoList = await _remoteDataSource.searchProducts(query);

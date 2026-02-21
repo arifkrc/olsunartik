@@ -1,111 +1,76 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import '../../../auth/domain/entities/user.dart';
+import '../../../../core/network/dio_client.dart';
+import '../../data/datasources/user_management_remote_datasource.dart';
+import '../../data/models/user_management_dtos.dart';
+import '../../data/repositories/user_management_repository_impl.dart';
+import '../../domain/repositories/user_management_repository.dart';
 
-// Mock user state notifier
-class UserManagementNotifier extends Notifier<List<User>> {
-  @override
-  List<User> build() => _generateMockUsers();
+// Repository Provider
+final userManagementRepositoryProvider = Provider<UserManagementRepository>((ref) {
+  final dioClient = ref.watch(dioClientProvider);
+  final remoteDataSource = UserManagementRemoteDataSource(dio: dioClient);
+  return UserManagementRepositoryImpl(remoteDataSource: remoteDataSource);
+});
 
-  static List<User> _generateMockUsers() {
-    return [
-      User(
-        id: 1,
-        kullaniciAdi: 'admin',
-        hesapSeviyesi: 'Admin',
-        personelId: null,
-        personelAdi: 'Admin User',
-        kayitTarihi: DateTime(2024, 1, 15),
-        telefon: '5551112233',
-        dogumTarihi: DateTime(1985, 5, 20),
-        yakiniTelefon: '5559998877',
-      ),
-      User(
-        id: 2,
-        kullaniciAdi: 'yonetici',
-        hesapSeviyesi: 'Manager',
-        personelId: 101,
-        personelAdi: 'Ahmet Yılmaz',
-        kayitTarihi: DateTime(2024, 3, 20),
-        telefon: '5552223344',
-        dogumTarihi: DateTime(1990, 8, 15),
-        yakiniTelefon: '5558887766',
-      ),
-      User(
-        id: 3,
-        kullaniciAdi: 'kullanici',
-        hesapSeviyesi: 'User',
-        personelId: 102,
-        personelAdi: 'Mehmet Demir',
-        kayitTarihi: DateTime(2024, 5, 10),
-        telefon: '5553334455',
-        dogumTarihi: DateTime(1995, 2, 28),
-        yakiniTelefon: '5557776655',
-      ),
-    ];
-  }
+// Pagination State
+class UserPaginationState {
+  final int pageNumber;
+  final int pageSize;
 
-  void addUser({
-    required String kullaniciAdi,
-    required String hesapSeviyesi,
-    int? personelId,
-    String? personelAdi,
-    String? telefon,
-    DateTime? dogumTarihi,
-    String? yakiniTelefon,
-  }) {
-    final newUser = User(
-      id: state.isEmpty
-          ? 1
-          : state.map((u) => u.id).reduce((a, b) => a > b ? a : b) + 1,
-      kullaniciAdi: kullaniciAdi,
-      hesapSeviyesi: hesapSeviyesi,
-      personelId: personelId,
-      personelAdi: personelAdi,
-      kayitTarihi: DateTime.now(),
-      telefon: telefon,
-      dogumTarihi: dogumTarihi,
-      yakiniTelefon: yakiniTelefon,
+  UserPaginationState({required this.pageNumber, required this.pageSize});
+
+  UserPaginationState copyWith({int? pageNumber, int? pageSize}) {
+    return UserPaginationState(
+      pageNumber: pageNumber ?? this.pageNumber,
+      pageSize: pageSize ?? this.pageSize,
     );
-    state = [...state, newUser];
-  }
-
-  void updateUser(
-    int id, {
-    String? hesapSeviyesi,
-    String? personelAdi,
-    String? telefon,
-    DateTime? dogumTarihi,
-    String? yakiniTelefon,
-  }) {
-    state = state.map((user) {
-      if (user.id == id) {
-        return user.copyWith(
-          hesapSeviyesi: hesapSeviyesi,
-          personelAdi: personelAdi,
-          telefon: telefon,
-          dogumTarihi: dogumTarihi,
-          yakiniTelefon: yakiniTelefon,
-        );
-      }
-      return user;
-    }).toList();
-  }
-
-  void deleteUser(int id) {
-    state = state.where((user) => user.id != id).toList();
-  }
-
-  void changePassword(int id, String newPassword) {
-    // Mock implementation - just show success message
-    // In real implementation, this would call API
   }
 }
 
-// Provider
-final userManagementProvider =
-    NotifierProvider<UserManagementNotifier, List<User>>(() {
-      return UserManagementNotifier();
-    });
+class UserPaginationNotifier extends Notifier<UserPaginationState> {
+  @override
+  UserPaginationState build() {
+    return UserPaginationState(pageNumber: 1, pageSize: 20);
+  }
 
-// Permission levels
-final permissionLevels = ['Admin', 'Manager', 'User'];
+  void setPage(int page) {
+    state = state.copyWith(pageNumber: page);
+  }
+}
+
+final userPaginationProvider = NotifierProvider<UserPaginationNotifier, UserPaginationState>(
+  () => UserPaginationNotifier(),
+);
+
+// List Provider
+final usersListProvider = FutureProvider<PaginatedResponse<KullaniciDto>>((ref) async {
+  final repository = ref.watch(userManagementRepositoryProvider);
+  final pagination = ref.watch(userPaginationProvider);
+
+  final result = await repository.getUsers(
+    pageNumber: pagination.pageNumber,
+    pageSize: pagination.pageSize,
+  );
+
+  if (result.success) return result.data!;
+  throw Exception(result.message ?? 'Unknown error');
+});
+
+// Single Record fetcher
+final userDetailsProvider = FutureProvider.family<KullaniciDto, int>((ref, id) async {
+  final repository = ref.watch(userManagementRepositoryProvider);
+  final result = await repository.getUserDetails(id);
+  
+  if (result.success) return result.data!;
+  throw Exception(result.message ?? 'Unknown error');
+});
+
+// Permission levels helper (Mapped to backend enums)
+// 0=SuperAdmin, 1=Admin, 2=Yonetici, 3=Kullanici, 4=Misafir
+final permissionLevels = {
+  0: 'Süper Admin',
+  1: 'Admin',
+  2: 'Yönetici',
+  3: 'Kullanıcı',
+  4: 'Misafir',
+};

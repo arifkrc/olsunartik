@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/constants/app_colors.dart';
-import '../../../auth/domain/entities/user.dart';
+import '../../data/models/user_management_dtos.dart';
 import '../providers/user_management_provider.dart';
 import 'dialogs/add_user_dialog.dart';
 import 'dialogs/edit_user_dialog.dart';
@@ -22,17 +22,8 @@ class _UserManagementTabState extends ConsumerState<UserManagementTab> {
 
   @override
   Widget build(BuildContext context) {
-    final users = ref.watch(userManagementProvider);
-    final filteredUsers = users.where((user) {
-      if (_searchQuery.isEmpty) return true;
-      return user.kullaniciAdi.toLowerCase().contains(
-            _searchQuery.toLowerCase(),
-          ) ||
-          (user.personelAdi?.toLowerCase().contains(
-                _searchQuery.toLowerCase(),
-              ) ??
-              false);
-    }).toList();
+    final usersAsync = ref.watch(usersListProvider);
+    final pagination = ref.watch(userPaginationProvider);
 
     return Column(
       children: [
@@ -108,16 +99,47 @@ class _UserManagementTabState extends ConsumerState<UserManagementTab> {
 
         // User list
         Expanded(
-          child: filteredUsers.isEmpty
-              ? Center(
+          child: usersAsync.when(
+            loading: () => const Center(
+              child: CircularProgressIndicator(color: AppColors.primary),
+            ),
+            error: (err, stack) => Center(
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  const Icon(LucideIcons.alertTriangle,
+                      size: 48, color: AppColors.error),
+                  const SizedBox(height: 16),
+                  Text('Kullanıcılar yüklenemedi: $err',
+                      style: const TextStyle(color: AppColors.error)),
+                  const SizedBox(height: 16),
+                  ElevatedButton(
+                    onPressed: () => ref.refresh(usersListProvider),
+                    child: const Text('Tekrar Dene'),
+                  ),
+                ],
+              ),
+            ),
+            data: (response) {
+              // Local filtering optionally
+              final filteredUsers = response.items.where((user) {
+                if (_searchQuery.isEmpty) return true;
+                return user.kullaniciAdi.toLowerCase().contains(
+                      _searchQuery.toLowerCase(),
+                    ) ||
+                    (user.personelAdi?.toLowerCase().contains(
+                          _searchQuery.toLowerCase(),
+                        ) ??
+                        false);
+              }).toList();
+
+              if (filteredUsers.isEmpty) {
+                return Center(
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(
-                        LucideIcons.users,
-                        size: 64,
-                        color: AppColors.textSecondary,
-                      ),
+                      const Icon(LucideIcons.users,
+                          size: 64, color: AppColors.textSecondary),
                       const SizedBox(height: 16),
                       Text(
                         _searchQuery.isEmpty
@@ -130,21 +152,80 @@ class _UserManagementTabState extends ConsumerState<UserManagementTab> {
                       ),
                     ],
                   ),
-                )
-              : ListView.builder(
-                  padding: const EdgeInsets.all(24),
-                  itemCount: filteredUsers.length,
-                  itemBuilder: (context, index) {
-                    final user = filteredUsers[index];
-                    return _buildUserCard(context, user);
-                  },
-                ),
+                );
+              }
+
+              return Column(
+                children: [
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(24),
+                      itemCount: filteredUsers.length,
+                      itemBuilder: (context, index) {
+                        final user = filteredUsers[index];
+                        return _buildUserCard(context, user);
+                      },
+                    ),
+                  ),
+                  // Pagination Controls
+                  Container(
+                    padding: const EdgeInsets.all(16),
+                    decoration: const BoxDecoration(
+                      color: AppColors.surface,
+                      border: Border(top: BorderSide(color: AppColors.border)),
+                    ),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        IconButton(
+                          icon: const Icon(LucideIcons.chevronLeft),
+                          onPressed: response.hasPreviousPage
+                              ? () {
+                                  ref
+                                      .read(userPaginationProvider.notifier)
+                                      .setPage(pagination.pageNumber - 1);
+                                }
+                              : null,
+                          color: response.hasPreviousPage
+                              ? AppColors.primary
+                              : AppColors.textSecondary,
+                        ),
+                        Text(
+                          'Sayfa ${response.pageNumber} / ${response.totalPages}',
+                          style: const TextStyle(
+                            color: AppColors.textMain,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(LucideIcons.chevronRight),
+                          onPressed: response.hasNextPage
+                              ? () {
+                                  ref
+                                      .read(userPaginationProvider.notifier)
+                                      .setPage(pagination.pageNumber + 1);
+                                }
+                              : null,
+                          color: response.hasNextPage
+                              ? AppColors.primary
+                              : AppColors.textSecondary,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+            },
+          ),
         ),
       ],
     );
   }
 
-  Widget _buildUserCard(BuildContext context, User user) {
+  Widget _buildUserCard(BuildContext context, KullaniciDto user) {
+    bool isAdmin = user.hesapSeviyesi <= 1;
+    String fullName = user.personelAdi ?? user.kullaniciAdi;
+
     return Container(
       margin: const EdgeInsets.only(bottom: 12),
       padding: const EdgeInsets.all(20),
@@ -160,16 +241,16 @@ class _UserManagementTabState extends ConsumerState<UserManagementTab> {
             width: 56,
             height: 56,
             decoration: BoxDecoration(
-              color: user.isAdmin
+              color: isAdmin
                   ? AppColors.primary.withValues(alpha: 0.15)
                   : AppColors.duzceGreen.withValues(alpha: 0.15),
               borderRadius: BorderRadius.circular(14),
             ),
             child: Center(
               child: Text(
-                user.fullName.isNotEmpty ? user.fullName[0].toUpperCase() : 'U',
+                fullName.isNotEmpty ? fullName[0].toUpperCase() : 'U',
                 style: TextStyle(
-                  color: user.isAdmin
+                  color: isAdmin
                       ? AppColors.primary
                       : AppColors.duzceGreen,
                   fontSize: 24,
@@ -189,7 +270,7 @@ class _UserManagementTabState extends ConsumerState<UserManagementTab> {
                 Row(
                   children: [
                     Text(
-                      user.fullName,
+                      fullName,
                       style: const TextStyle(
                         color: AppColors.textMain,
                         fontSize: 16,
@@ -197,6 +278,19 @@ class _UserManagementTabState extends ConsumerState<UserManagementTab> {
                       ),
                     ),
                     const SizedBox(width: 12),
+                    if (!user.isActive)
+                      Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 4,
+                        ),
+                        decoration: BoxDecoration(
+                          color: AppColors.error.withValues(alpha: 0.15),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Text('Pasif', style: TextStyle(color: AppColors.error, fontSize: 12, fontWeight: FontWeight.bold)),
+                      ),
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 10,
@@ -225,19 +319,13 @@ class _UserManagementTabState extends ConsumerState<UserManagementTab> {
                   runSpacing: 4,
                   children: [
                     _buildInfoItem(LucideIcons.atSign, user.kullaniciAdi),
-                    if (user.telefon?.isNotEmpty == true)
-                      _buildInfoItem(LucideIcons.phone, user.telefon!),
+                    if (user.telefonNo?.isNotEmpty == true)
+                      _buildInfoItem(LucideIcons.phone, user.telefonNo!),
                     if (user.dogumTarihi != null)
                       _buildInfoItem(
                         LucideIcons.calendar,
                         DateFormat('dd.MM.yyyy').format(user.dogumTarihi!),
                         tooltip: 'Doğum Tarihi',
-                      ),
-                    if (user.yakiniTelefon?.isNotEmpty == true)
-                      _buildInfoItem(
-                        LucideIcons.contact,
-                        'Yakın: ${user.yakiniTelefon!}',
-                        color: AppColors.error,
                       ),
                     _buildInfoItem(
                       LucideIcons.clock,
@@ -277,30 +365,14 @@ class _UserManagementTabState extends ConsumerState<UserManagementTab> {
     );
   }
 
-  Color _getPermissionColor(String permission) {
-    switch (permission) {
-      case 'Admin':
-        return AppColors.primary;
-      case 'Manager':
-        return AppColors.duzceGreen;
-      case 'User':
-        return AppColors.textSecondary;
-      default:
-        return AppColors.textSecondary;
-    }
+  Color _getPermissionColor(int permission) {
+    if (permission <= 1) return AppColors.primary; // SuperAdmin/Admin
+    if (permission == 2) return AppColors.duzceGreen; // Yonetici
+    return AppColors.textSecondary; // Kullanici, Misafir
   }
 
-  String _getPermissionLabel(String permission) {
-    switch (permission) {
-      case 'Admin':
-        return 'Yönetici (Admin)';
-      case 'Manager':
-        return 'Yönetici (Manager)';
-      case 'User':
-        return 'Kullanıcı';
-      default:
-        return permission;
-    }
+  String _getPermissionLabel(int permission) {
+    return permissionLevels[permission] ?? 'Kullanıcı';
   }
 
   Widget _buildInfoItem(
@@ -334,21 +406,21 @@ class _UserManagementTabState extends ConsumerState<UserManagementTab> {
     showDialog(context: context, builder: (context) => const AddUserDialog());
   }
 
-  void _showEditUserDialog(BuildContext context, User user) {
+  void _showEditUserDialog(BuildContext context, KullaniciDto user) {
     showDialog(
       context: context,
       builder: (context) => EditUserDialog(user: user),
     );
   }
 
-  void _showChangePasswordDialog(BuildContext context, User user) {
+  void _showChangePasswordDialog(BuildContext context, KullaniciDto user) {
     showDialog(
       context: context,
       builder: (context) => ChangePasswordDialog(user: user),
     );
   }
 
-  void _showDeleteUserDialog(BuildContext context, User user) {
+  void _showDeleteUserDialog(BuildContext context, KullaniciDto user) {
     showDialog(
       context: context,
       builder: (context) => DeleteUserDialog(user: user),

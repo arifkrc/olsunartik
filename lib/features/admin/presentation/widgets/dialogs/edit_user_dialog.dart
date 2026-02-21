@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+import 'package:intl/intl.dart';
 import '../../../../../core/constants/app_colors.dart';
-import '../../../../auth/domain/entities/user.dart';
+import '../../../data/models/user_management_dtos.dart';
 import '../../providers/user_management_provider.dart';
 
 class EditUserDialog extends ConsumerStatefulWidget {
-  final User user;
+  final KullaniciDto user;
 
   const EditUserDialog({super.key, required this.user});
 
@@ -16,27 +17,34 @@ class EditUserDialog extends ConsumerStatefulWidget {
 
 class _EditUserDialogState extends ConsumerState<EditUserDialog> {
   final _formKey = GlobalKey<FormState>();
-  late String _selectedPermission;
+  
+  late int _selectedPermission;
+  late bool _isActive;
+  
+  final _kullaniciAdiController = TextEditingController();
   final _fullNameController = TextEditingController();
   final _phoneController = TextEditingController();
-  final _relativePhoneController = TextEditingController();
   DateTime? _selectedDate;
+  
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _selectedPermission = widget.user.hesapSeviyesi;
+    _isActive = widget.user.isActive;
+    
+    _kullaniciAdiController.text = widget.user.kullaniciAdi;
     _fullNameController.text = widget.user.personelAdi ?? '';
-    _phoneController.text = widget.user.telefon ?? '';
-    _relativePhoneController.text = widget.user.yakiniTelefon ?? '';
+    _phoneController.text = widget.user.telefonNo ?? '';
     _selectedDate = widget.user.dogumTarihi;
   }
 
   @override
   void dispose() {
+    _kullaniciAdiController.dispose();
     _fullNameController.dispose();
     _phoneController.dispose();
-    _relativePhoneController.dispose();
     super.dispose();
   }
 
@@ -74,7 +82,7 @@ class _EditUserDialogState extends ConsumerState<EditUserDialog> {
     return Dialog(
       backgroundColor: Colors.transparent,
       child: Container(
-        width: 450,
+        width: 500,
         padding: const EdgeInsets.all(32),
         decoration: BoxDecoration(
           color: AppColors.surface,
@@ -115,29 +123,82 @@ class _EditUserDialogState extends ConsumerState<EditUserDialog> {
                 ),
                 const SizedBox(height: 24),
 
-                // Username (read-only)
+                // -- ACCOUNT SECTION --
+                const Text('Hesap Bilgileri', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 16)),
+                const Divider(color: AppColors.border),
+                const SizedBox(height: 12),
+
+                // Username
                 TextFormField(
-                  initialValue: widget.user.kullaniciAdi,
-                  enabled: false,
-                  style: const TextStyle(color: AppColors.textSecondary),
+                  controller: _kullaniciAdiController,
+                  style: const TextStyle(color: AppColors.textMain),
                   decoration: InputDecoration(
                     labelText: 'Kullanıcı Adı',
                     labelStyle: const TextStyle(color: AppColors.textSecondary),
                     prefixIcon: const Icon(LucideIcons.atSign, size: 18),
                     filled: true,
-                    fillColor: AppColors.background.withValues(alpha: 0.5),
+                    fillColor: AppColors.background,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppColors.border),
+                      borderSide: const BorderSide(color: AppColors.border),
                     ),
                   ),
                 ),
                 const SizedBox(height: 16),
 
+                // Permission
+                DropdownButtonFormField<int>(
+                  initialValue: _selectedPermission,
+                  dropdownColor: AppColors.surface,
+                  style: const TextStyle(color: AppColors.textMain),
+                  decoration: InputDecoration(
+                    labelText: 'Yetki Seviyesi',
+                    labelStyle: const TextStyle(color: AppColors.textSecondary),
+                    prefixIcon: const Icon(LucideIcons.shield, size: 18),
+                    filled: true,
+                    fillColor: AppColors.background,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                  ),
+                  items: permissionLevels.entries.map((entry) {
+                    return DropdownMenuItem<int>(
+                      value: entry.key,
+                      child: Text(entry.value),
+                    );
+                  }).toList(),
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _selectedPermission = value);
+                    }
+                  },
+                ),
+                const SizedBox(height: 16),
+
+                // IsActive
+                SwitchListTile(
+                  title: const Text('Aktif Hesap', style: TextStyle(color: AppColors.textMain)),
+                  subtitle: const Text('Kullanıcının sisteme giriş yapabilmesini sağlar.', style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                  value: _isActive,
+                  activeThumbColor: AppColors.primary,
+                  contentPadding: EdgeInsets.zero,
+                  onChanged: (bool value) {
+                    setState(() => _isActive = value);
+                  },
+                ),
+                const SizedBox(height: 24),
+
+                // -- PERSONNEL SECTION --
+                const Text('Personel Bilgileri', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold, fontSize: 16)),
+                const Divider(color: AppColors.border),
+                const SizedBox(height: 12),
+
                 // Full Name
                 TextFormField(
                   controller: _fullNameController,
                   style: const TextStyle(color: AppColors.textMain),
+                  validator: (value) => (value == null || value.isEmpty) ? 'Ad soyad zorunludur' : null,
                   decoration: InputDecoration(
                     labelText: 'Ad Soyad',
                     labelStyle: const TextStyle(color: AppColors.textSecondary),
@@ -146,7 +207,7 @@ class _EditUserDialogState extends ConsumerState<EditUserDialog> {
                     fillColor: AppColors.background,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppColors.border),
+                      borderSide: const BorderSide(color: AppColors.border),
                     ),
                   ),
                 ),
@@ -165,7 +226,7 @@ class _EditUserDialogState extends ConsumerState<EditUserDialog> {
                     fillColor: AppColors.background,
                     border: OutlineInputBorder(
                       borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppColors.border),
+                      borderSide: const BorderSide(color: AppColors.border),
                     ),
                   ),
                 ),
@@ -207,53 +268,6 @@ class _EditUserDialogState extends ConsumerState<EditUserDialog> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
-
-                // Yakın Telefon
-                TextFormField(
-                  controller: _relativePhoneController,
-                  style: const TextStyle(color: AppColors.textMain),
-                  keyboardType: TextInputType.phone,
-                  decoration: InputDecoration(
-                    labelText: 'Yakın Telefon Numarası',
-                    labelStyle: const TextStyle(color: AppColors.textSecondary),
-                    prefixIcon: const Icon(LucideIcons.contact, size: 18),
-                    filled: true,
-                    fillColor: AppColors.background,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppColors.border),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Permission
-                DropdownButtonFormField<String>(
-                  initialValue: _selectedPermission,
-                  dropdownColor: AppColors.surface,
-                  style: const TextStyle(color: AppColors.textMain),
-                  decoration: InputDecoration(
-                    labelText: 'Yetki Seviyesi',
-                    labelStyle: const TextStyle(color: AppColors.textSecondary),
-                    prefixIcon: const Icon(LucideIcons.shield, size: 18),
-                    filled: true,
-                    fillColor: AppColors.background,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppColors.border),
-                    ),
-                  ),
-                  items: permissionLevels.map((permission) {
-                    return DropdownMenuItem(
-                      value: permission,
-                      child: Text(_getPermissionLabel(permission)),
-                    );
-                  }).toList(),
-                  onChanged: (value) {
-                    setState(() => _selectedPermission = value!);
-                  },
-                ),
                 const SizedBox(height: 24),
 
                 // Buttons
@@ -267,7 +281,7 @@ class _EditUserDialogState extends ConsumerState<EditUserDialog> {
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(12),
                           ),
-                          side: BorderSide(color: AppColors.border),
+                          side: const BorderSide(color: AppColors.border),
                         ),
                         child: const Text(
                           'İptal',
@@ -278,7 +292,7 @@ class _EditUserDialogState extends ConsumerState<EditUserDialog> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: _updateUser,
+                        onPressed: _isLoading ? null : _updateUser,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
@@ -287,7 +301,16 @@ class _EditUserDialogState extends ConsumerState<EditUserDialog> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: const Text('Güncelle'),
+                        child: _isLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  color: Colors.white,
+                                  strokeWidth: 2,
+                                ),
+                              )
+                            : const Text('Güncelle'),
                       ),
                     ),
                   ],
@@ -300,39 +323,64 @@ class _EditUserDialogState extends ConsumerState<EditUserDialog> {
     );
   }
 
-  String _getPermissionLabel(String permission) {
-    switch (permission) {
-      case 'Admin':
-        return 'Yönetici (Admin)';
-      case 'Manager':
-        return 'Yönetici (Manager)';
-      case 'User':
-        return 'Kullanıcı';
-      default:
-        return permission;
+  Future<void> _updateUser() async {
+    if (!_formKey.currentState!.validate()) return;
+    
+    setState(() => _isLoading = true);
+
+    final repository = ref.read(userManagementRepositoryProvider);
+
+    // 1. Update Account
+    final accountRequest = UpdateAccountRequest(
+      kullaniciAdi: _kullaniciAdiController.text,
+      hesapSeviyesi: _selectedPermission,
+      isActive: _isActive,
+      // personelId is kept identical to before, omitted so it remains attached to same personnel
+    );
+
+    // 2. Update Personnel
+    final personnelRequest = UpdatePersonnelRequest(
+      adSoyad: _fullNameController.text,
+      telefonNo: _phoneController.text.isNotEmpty ? _phoneController.text : null,
+      dogumTarihi: _selectedDate != null ? DateFormat('yyyy-MM-dd').format(_selectedDate!) : null,
+    );
+
+    // Run both updates
+    final accountResult = await repository.updateAccount(widget.user.id, accountRequest);
+    
+    // Personnel API may require careful chaining if account fails, but doing concurrently/sequential is fine
+    if (accountResult.success) {
+      final personnelResult = await repository.updatePersonnel(widget.user.id, personnelRequest);
+      
+      if (personnelResult.success) {
+        if (!mounted) return;
+        ref.invalidate(usersListProvider);
+        Navigator.of(context).pop();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Kullanıcı başarıyla güncellendi'),
+            backgroundColor: AppColors.duzceGreen,
+          ),
+        );
+      } else {
+        _showError('Personel güncellenirken hata: ${personnelResult.message ?? 'Hata'}');
+      }
+    } else {
+      _showError('Hesap güncellenirken hata: ${accountResult.message ?? 'Hata'}');
+    }
+
+    if (mounted) {
+      setState(() => _isLoading = false);
     }
   }
 
-  void _updateUser() {
-    ref
-        .read(userManagementProvider.notifier)
-        .updateUser(
-          widget.user.id,
-          hesapSeviyesi: _selectedPermission,
-          personelAdi: _fullNameController.text.isNotEmpty
-              ? _fullNameController.text
-              : null,
-          telefon: _phoneController.text,
-          dogumTarihi: _selectedDate,
-          yakiniTelefon: _relativePhoneController.text,
-        );
-
-    Navigator.of(context).pop();
-
+  void _showError(String message) {
+    if (!mounted) return;
     ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Kullanıcı güncellendi'),
-        backgroundColor: AppColors.duzceGreen,
+      SnackBar(
+        content: Text(message),
+        backgroundColor: AppColors.error,
       ),
     );
   }

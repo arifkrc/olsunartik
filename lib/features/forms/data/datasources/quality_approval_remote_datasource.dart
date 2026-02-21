@@ -12,7 +12,7 @@ class QualityApprovalRemoteDataSource {
   Future<String> create(KaliteOnayRequestDto request) async {
     try {
       final response = await _dio.post(
-        '/api/kaliteonay',
+        'kaliteonay',
         data: request.toJson(),
       );
 
@@ -41,7 +41,7 @@ class QualityApprovalRemoteDataSource {
   // --- Aşağıdakiler ileride gerekirse kullanılabilir ---
 
   Future<List<KaliteOnayResponseDto>> getAll() async {
-    final response = await _dio.get('/api/kaliteonay');
+    final response = await _dio.get('kaliteonay');
     final data = response.data;
     if (data['success'] == true && data['data'] != null) {
       final list = data['data'] as List<dynamic>;

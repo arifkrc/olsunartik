@@ -4,6 +4,7 @@ import '../../domain/entities/operasyon.dart';
 import '../../domain/entities/tezgah.dart';
 import '../../domain/entities/bolge.dart';
 import '../../domain/entities/ret_kodu.dart';
+import '../../constants/app_constants.dart';
 
 class LookupRemoteDataSource {
   final Dio _dio;
@@ -11,7 +12,7 @@ class LookupRemoteDataSource {
   LookupRemoteDataSource(this._dio);
 
   Future<List<VardiyaDto>> getVardiyalar() async {
-    final response = await _dio.get('/api/vardiyalar');
+    final response = await _dio.get('vardiyalar');
     if (response.data['success'] == true) {
       final List<dynamic> data = response.data['data'];
       return data.map((e) => VardiyaDto.fromJson(e)).toList();
@@ -20,7 +21,7 @@ class LookupRemoteDataSource {
   }
 
   Future<List<Operasyon>> getOperasyonlar() async {
-    final response = await _dio.get('/api/lookup/operasyonlar');
+    final response = await _dio.get('${ApiConstants.lookupBase}/operasyonlar');
     if (response.data['success'] == true) {
       final List<dynamic> data = response.data['data'];
       return data
@@ -37,7 +38,7 @@ class LookupRemoteDataSource {
   }
 
   Future<List<Tezgah>> getTezgahlar() async {
-    final response = await _dio.get('/api/lookup/tezgahlar');
+    final response = await _dio.get('${ApiConstants.lookupBase}/tezgahlar');
     if (response.data['success'] == true) {
       final List<dynamic> data = response.data['data'];
       return data
@@ -54,7 +55,7 @@ class LookupRemoteDataSource {
   }
 
   Future<List<Bolge>> getBolgeler() async {
-    final response = await _dio.get('/api/lookup/bolgeler');
+    final response = await _dio.get('${ApiConstants.lookupBase}/bolgeler');
     if (response.data['success'] == true) {
       final List<dynamic> data = response.data['data'];
       return data
@@ -65,7 +66,7 @@ class LookupRemoteDataSource {
   }
 
   Future<List<RetKodu>> getRetKodlari() async {
-    final response = await _dio.get('/api/lookup/ret-kodlari');
+    final response = await _dio.get('${ApiConstants.lookupBase}/ret-kodlari');
     if (response.data['success'] == true) {
       final List<dynamic> data = response.data['data'];
       return data

@@ -19,14 +19,14 @@ class AuthRepositoryImpl implements IAuthRepository {
         token: 'test-token-bypass-${DateTime.now().millisecondsSinceEpoch}',
         expiration: DateTime.now().add(const Duration(days: 30)),
       );
-      await _tokenStorage.saveToken(mockToken.token);
+      await _tokenStorage.saveToken(mockToken.token, mockToken.expiration.toIso8601String());
       return mockToken;
     }
 
     // Real backend login
     final tokenDto = await _remoteDataSource.login(kullaniciAdi, parola);
     // Store token
-    await _tokenStorage.saveToken(tokenDto.token);
+    await _tokenStorage.saveToken(tokenDto.token, tokenDto.expiration.toIso8601String());
     return tokenDto;
   }
 

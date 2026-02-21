@@ -132,7 +132,7 @@ class SyncService {
   Future<void> _insertSiparis(Siparis siparis) async {
     // 1. Server'a gönder
     final response = await _dio.post(
-      '/api/siparisler',
+      'siparisler',
       data: {
         'musteri_adi': siparis.musteriAdi,
         'siparis_tarihi': siparis.siparisTarihi,
@@ -184,7 +184,7 @@ class SyncService {
     }
 
     final response = await _dio.put(
-      '/api/siparisler/${siparis.remoteId}',
+      'siparisler/${siparis.remoteId}',
       data: {
         'musteri_adi': siparis.musteriAdi,
         'siparis_tarihi': siparis.siparisTarihi,
@@ -263,7 +263,7 @@ class SyncService {
 
   Future<void> _insertKalem(SiparisKalemi kalem) async {
     final response = await _dio.post(
-      '/api/siparis-kalemleri',
+      'siparis-kalemleri',
       data: {
         'siparis_id': kalem.siparisRemoteId, // Parent'ın remote ID'si
         'urun_kodu': kalem.urunKodu,
@@ -302,7 +302,7 @@ class SyncService {
     }
 
     await _dio.put(
-      '/api/siparis-kalemleri/${kalem.remoteId}',
+      'siparis-kalemleri/${kalem.remoteId}',
       data: {
         'urun_kodu': kalem.urunKodu,
         'urun_adi': kalem.urunAdi,
@@ -347,7 +347,7 @@ class SyncService {
     for (final kalem in deletedList) {
       if (kalem.remoteId != null) {
         try {
-          await _dio.delete('/api/siparis-kalemleri/${kalem.remoteId}');
+          await _dio.delete('siparis-kalemleri/${kalem.remoteId}');
         } catch (e) {
           AppLogger.warning(
             'Server delete hatası (kalem)',
@@ -373,7 +373,7 @@ class SyncService {
     for (final siparis in deletedList) {
       if (siparis.remoteId != null) {
         try {
-          await _dio.delete('/api/siparisler/${siparis.remoteId}');
+          await _dio.delete('siparisler/${siparis.remoteId}');
         } catch (e) {
           AppLogger.warning(
             'Server delete hatası (sipariş)',

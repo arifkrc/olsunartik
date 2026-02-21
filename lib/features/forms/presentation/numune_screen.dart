@@ -15,10 +15,13 @@ import '../../../core/widgets/forms/input_field_widget.dart';
 import '../../../core/providers/user_permission_provider.dart';
 import '../../auth/presentation/login_screen.dart';
 import '../../chat/presentation/shift_notes_screen.dart';
+import '../domain/entities/numune_form.dart';
+import 'providers/numune_providers.dart';
 
 /// Numune/Deneme kayıt modeli
 class NumuneEntry {
   final String id;
+  final int urunId;
   final String productCode;
   final String batchNo;
   final String title;
@@ -29,6 +32,7 @@ class NumuneEntry {
 
   NumuneEntry({
     required this.id,
+    required this.urunId,
     required this.productCode,
     required this.batchNo,
     required this.title,
@@ -50,10 +54,13 @@ class _NumuneScreenState extends ConsumerState<NumuneScreen> {
   final String _operatorName = 'Furkan Yılmaz';
   final ImagePicker _imagePicker = ImagePicker();
 
+  bool _isLoading = false;
+
   // Date Time
   DateTime _selectedDateTime = DateTime.now();
 
   // Product Info
+  int? _productId;
   String? _productName;
   String? _productType;
 
@@ -114,10 +121,10 @@ class _NumuneScreenState extends ConsumerState<NumuneScreen> {
   }
 
   void _addEntry() {
-    if (_productCodeController.text.isEmpty || _titleController.text.isEmpty) {
+    if (_productCodeController.text.isEmpty || _titleController.text.isEmpty || _productId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Ürün kodu ve Deneme/Numune Başlığı zorunludur'),
+          content: Text('Lütfen geçerli bir ürün seçin, ürün kodu ve numune başlığı girin'),
           backgroundColor: Colors.orange,
         ),
       );
@@ -129,6 +136,7 @@ class _NumuneScreenState extends ConsumerState<NumuneScreen> {
         0,
         NumuneEntry(
           id: DateTime.now().millisecondsSinceEpoch.toString(),
+          urunId: _productId!,
           productCode: _productCodeController.text,
           batchNo: _batchNo,
           title: _titleController.text,
@@ -159,7 +167,7 @@ class _NumuneScreenState extends ConsumerState<NumuneScreen> {
     setState(() => _entries.removeWhere((e) => e.id == id));
   }
 
-  void _saveAll() {
+  Future<void> _saveAll() async {
     if (_entries.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -170,25 +178,62 @@ class _NumuneScreenState extends ConsumerState<NumuneScreen> {
       return;
     }
 
-    setState(() {
-      _entries.clear();
-      _productCodeController.clear();
-      _quantityController.text = '1';
-      _titleController.clear();
-      _generalResultController.clear();
-      _currentImages.clear();
-      // Reset BatchNumberPicker
-      _batchNo = '';
-      _batchNumberPickerKey = UniqueKey();
-    });
+    setState(() => _isLoading = true);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: const Text('Tüm kayıtlar kaydedildi'),
-        backgroundColor: AppColors.duzceGreen,
-        duration: const Duration(seconds: 2),
-      ),
-    );
+    try {
+      final useCase = ref.read(submitNumuneFormUseCaseProvider);
+
+      for (var entry in _entries) {
+        final form = NumuneForm(
+          urunId: entry.urunId,
+          urunKodu: entry.productCode,
+          urunAdi: _productName,
+          urunTuru: _productType,
+          adet: entry.quantity,
+          sarjNo: entry.batchNo,
+          numuneBasligi: entry.title,
+          genelSonuc: entry.generalResult ?? '-',
+          gorsel: entry.imagePaths.isNotEmpty ? entry.imagePaths.first : '', // Base64 encoding required if sending real image
+        );
+        await useCase.call(form);
+      }
+
+      if (mounted) {
+        setState(() {
+          _entries.clear();
+          _productCodeController.clear();
+          _productId = null;
+          _productName = null;
+          _productType = null;
+          _quantityController.text = '1';
+          _titleController.clear();
+          _generalResultController.clear();
+          _currentImages.clear();
+          _batchNo = '';
+          _batchNumberPickerKey = UniqueKey();
+          _isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Tüm kayıtlar başarıyla kaydedildi'),
+            backgroundColor: AppColors.duzceGreen,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Hata oluştu: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
   }
 
   @override
@@ -352,6 +397,7 @@ class _NumuneScreenState extends ConsumerState<NumuneScreen> {
                                         onProductCodeChanged: (code) {
                                           setState(() {
                                             if (code.isEmpty) {
+                                              _productId = null;
                                               _productName = null;
                                               _productType = null;
                                             }
@@ -359,6 +405,7 @@ class _NumuneScreenState extends ConsumerState<NumuneScreen> {
                                         },
                                         onProductSelected: (product) {
                                           setState(() {
+                                            _productId = product.id;
                                             _productName = product.urunAdi;
                                             _productType = product.urunTuru;
                                           });
@@ -477,13 +524,8 @@ class _NumuneScreenState extends ConsumerState<NumuneScreen> {
                                           (entry) => _buildEntryCard(entry),
                                         )),
                                         const SizedBox(height: 16),
-                                        ElevatedButton.icon(
-                                          onPressed: _saveAll,
-                                          icon: const Icon(
-                                            LucideIcons.save,
-                                            size: 18,
-                                          ),
-                                          label: const Text('TÜMÜNÜ KAYDET'),
+                                        ElevatedButton(
+                                          onPressed: _isLoading ? null : _saveAll,
                                           style: ElevatedButton.styleFrom(
                                             backgroundColor:
                                                 AppColors.duzceGreen,
@@ -497,6 +539,26 @@ class _NumuneScreenState extends ConsumerState<NumuneScreen> {
                                             ),
                                             elevation: 0,
                                           ),
+                                          child: _isLoading
+                                              ? const SizedBox(
+                                                  width: 18,
+                                                  height: 18,
+                                                  child: CircularProgressIndicator(
+                                                    strokeWidth: 2,
+                                                    color: Colors.white,
+                                                  ),
+                                                )
+                                              : const Row(
+                                                  mainAxisAlignment: MainAxisAlignment.center,
+                                                  children: [
+                                                    Icon(
+                                                      LucideIcons.save,
+                                                      size: 18,
+                                                    ),
+                                                    SizedBox(width: 8),
+                                                    Text('TÜMÜNÜ KAYDET'),
+                                                  ],
+                                                ),
                                         ),
                                       ],
                                     ),

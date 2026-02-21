@@ -1,19 +1,25 @@
 class ReworkForm {
   final int? id;
-  final String urunKodu;
+  final int urunId;
+  final String? urunKodu; // Opsiyonel referans olarak tutabiliriz UI'da göstermek için (API'ye Bulk payload'da gönderilmiyor, response'da geliyor)
+  final String? urunAdi; // API response'da geliyor, local gösterim için saklanabilir
+  final int adet;
+  final int retKoduId;
   final String sarjNo;
-  final int miktar;
-  final int islemId; // Rework işlem tipi (e.g., Yüzey Temizleme, Çapak Alma)
-  final String? aciklama;
-  final DateTime kayitTarihi;
+  final String sonuc;
+  final String? aciklama; // API beklemiyor ama lokal taslaklarda / UI state'te tutmak için
+  final DateTime? kayitTarihi; // API'nin 'olusturmaZamani' vb., bulk'ta request ile yollamıyoruz
 
   ReworkForm({
     this.id,
-    required this.urunKodu,
+    required this.urunId,
+    this.urunKodu,
+    this.urunAdi,
+    required this.adet,
+    required this.retKoduId,
     required this.sarjNo,
-    required this.miktar,
-    required this.islemId,
+    required this.sonuc,
     this.aciklama,
-    required this.kayitTarihi,
+    this.kayitTarihi,
   });
 }

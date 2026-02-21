@@ -3,12 +3,17 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import 'package:flutter/foundation.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/sidebar_navigation.dart';
 import '../../auth/presentation/login_screen.dart';
 import '../../chat/presentation/shift_notes_screen.dart';
+import '../domain/entities/palet_giris_form.dart';
+import 'providers/palet_giris_providers.dart';
+import '../../../core/widgets/forms/searchable_product_field.dart';
+import '../../../core/providers/product_providers.dart';
 
 // Kayıt Modeli
 class _GKKEntry {
@@ -35,7 +40,7 @@ class _GKKEntry {
   });
 }
 
-class PaletGirisKaliteScreen extends StatefulWidget {
+class PaletGirisKaliteScreen extends ConsumerStatefulWidget {
   final String supplierName;
   final String invoiceNo;
   final DateTime? initialDate;
@@ -48,13 +53,87 @@ class PaletGirisKaliteScreen extends StatefulWidget {
   });
 
   @override
-  State<PaletGirisKaliteScreen> createState() => _PaletGirisKaliteScreenState();
+  ConsumerState<PaletGirisKaliteScreen> createState() => _PaletGirisKaliteScreenState();
 }
 
-class _PaletGirisKaliteScreenState extends State<PaletGirisKaliteScreen> {
+class _PaletGirisKaliteScreenState extends ConsumerState<PaletGirisKaliteScreen> {
   final List<_GKKEntry> _entries = [];
   final ImagePicker _picker = ImagePicker();
   final String _operatorName = 'Furkan Yılmaz';
+  bool _isLoading = false;
+
+  int _mapStatusToInt(String status) {
+    switch (status) {
+      case 'Kabul':
+        return 1;
+      case 'Şartlı Kabul':
+        return 2;
+      case 'Ret':
+        return 3;
+      default:
+        return 1;
+    }
+  }
+
+  Future<void> _saveAll() async {
+    if (_entries.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Kaydedilecek giriş yok'),
+          backgroundColor: Colors.orange,
+        ),
+      );
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    try {
+      final useCase = ref.read(submitPaletGirisFormUseCaseProvider);
+
+      for (var entry in _entries) {
+        final form = PaletGirisForm(
+          tedarikciAdi: widget.supplierName,
+          irsaliyeNo: widget.invoiceNo,
+          urunAdi: entry.productName,
+          nemOlcumleri: entry.humidityValues,
+          fizikiYapiKontrol: _mapStatusToInt(entry.fizikiKontrol),
+          muhurKontrol: _mapStatusToInt(entry.muhurKontrol),
+          irsaliyeEslestirme: _mapStatusToInt(entry.irsaliyeKontrol),
+          aciklama: entry.note,
+          fotografYolu: entry.imagePath ?? '', // Base64 encoding required if sending real image
+        );
+        await useCase.call(form);
+      }
+
+      if (mounted) {
+        setState(() {
+          _entries.clear();
+          _isLoading = false;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Tüm kayıtlar başarıyla kaydedildi'),
+            backgroundColor: AppColors.duzceGreen,
+            duration: const Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        setState(() => _isLoading = false);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Hata oluştu: ${e.toString()}'),
+            backgroundColor: AppColors.error,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+      }
+    }
+  }
+
 
   void _showAddEntryDialog() {
     String fiziki = 'Kabul';
@@ -163,29 +242,18 @@ class _PaletGirisKaliteScreenState extends State<PaletGirisKaliteScreen> {
                         ),
                         const SizedBox(height: 24),
 
-                        // Ürün Adı
-                        TextField(
+                        // Ürün Adı (Ham Ürün Araması)
+                        SearchableProductField(
                           controller: productNameController,
-                          style: const TextStyle(color: AppColors.textMain),
-                          decoration: InputDecoration(
-                            labelText: 'Ürün Adı',
-                            labelStyle: const TextStyle(
-                              color: AppColors.textSecondary,
-                            ),
-                            filled: true,
-                            fillColor: AppColors.surfaceLight.withValues(
-                              alpha: 0.3,
-                            ),
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              borderSide: BorderSide.none,
-                            ),
-                            prefixIcon: const Icon(
-                              LucideIcons.tag,
-                              color: AppColors.textSecondary,
-                              size: 18,
-                            ),
-                          ),
+                          searchProvider: rawProductSearchProvider,
+                          displayStringForOption: (product) => product.urunAdi,
+                          onProductSelected: (product) {
+                            if (product != null) {
+                              setSheetState(() {
+                                productNameController.text = product.urunAdi;
+                              });
+                            }
+                          },
                         ),
                         const SizedBox(height: 24),
 
@@ -766,6 +834,47 @@ class _PaletGirisKaliteScreenState extends State<PaletGirisKaliteScreen> {
                                 },
                               ),
                       ),
+                      
+                      // Bottom bar
+                      if (_entries.isNotEmpty)
+                        Container(
+                          padding: const EdgeInsets.all(24),
+                          decoration: BoxDecoration(
+                            color: AppColors.surface,
+                            border: Border(
+                              top: BorderSide(color: AppColors.border),
+                            ),
+                          ),
+                          child: ElevatedButton(
+                            onPressed: _isLoading ? null : _saveAll,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.duzceGreen,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(vertical: 16),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              elevation: 0,
+                            ),
+                            child: _isLoading
+                                ? const SizedBox(
+                                    width: 18,
+                                    height: 18,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                      color: Colors.white,
+                                    ),
+                                  )
+                                : const Row(
+                                    mainAxisAlignment: MainAxisAlignment.center,
+                                    children: [
+                                      Icon(LucideIcons.save, size: 18),
+                                      SizedBox(width: 8),
+                                      Text('TÜMÜNÜ KAYDET'),
+                                    ],
+                                  ),
+                          ),
+                        ),
                     ],
                   ),
                 ),

@@ -2,16 +2,25 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../../core/constants/app_colors.dart';
-import '../../../../auth/domain/entities/user.dart';
+import '../../../data/models/user_management_dtos.dart';
 import '../../providers/user_management_provider.dart';
 
-class DeleteUserDialog extends ConsumerWidget {
-  final User user;
+class DeleteUserDialog extends ConsumerStatefulWidget {
+  final KullaniciDto user;
 
   const DeleteUserDialog({super.key, required this.user});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DeleteUserDialog> createState() => _DeleteUserDialogState();
+}
+
+class _DeleteUserDialogState extends ConsumerState<DeleteUserDialog> {
+  bool _isLoading = false;
+
+  @override
+  Widget build(BuildContext context) {
+    String fullName = widget.user.personelAdi ?? widget.user.kullaniciAdi;
+
     return Dialog(
       backgroundColor: Colors.transparent,
       child: Container(
@@ -89,7 +98,7 @@ class DeleteUserDialog extends ConsumerWidget {
                       children: [
                         const TextSpan(text: ''),
                         TextSpan(
-                          text: user.fullName,
+                          text: fullName,
                           style: const TextStyle(
                             fontWeight: FontWeight.bold,
                             color: AppColors.textMain,
@@ -97,7 +106,7 @@ class DeleteUserDialog extends ConsumerWidget {
                         ),
                         const TextSpan(text: ' ('),
                         TextSpan(
-                          text: user.kullaniciAdi,
+                          text: widget.user.kullaniciAdi,
                           style: const TextStyle(color: AppColors.primary),
                         ),
                         const TextSpan(
@@ -134,7 +143,7 @@ class DeleteUserDialog extends ConsumerWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: ElevatedButton(
-                    onPressed: () => _deleteUser(context, ref),
+                    onPressed: _isLoading ? null : () => _deleteUser(context),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppColors.error,
                       foregroundColor: Colors.white,
@@ -143,7 +152,16 @@ class DeleteUserDialog extends ConsumerWidget {
                         borderRadius: BorderRadius.circular(12),
                       ),
                     ),
-                    child: const Text('Sil'),
+                    child: _isLoading
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              color: Colors.white,
+                              strokeWidth: 2,
+                            ),
+                          )
+                        : const Text('Sil'),
                   ),
                 ),
               ],
@@ -154,16 +172,34 @@ class DeleteUserDialog extends ConsumerWidget {
     );
   }
 
-  void _deleteUser(BuildContext context, WidgetRef ref) {
-    ref.read(userManagementProvider.notifier).deleteUser(user.id);
+  Future<void> _deleteUser(BuildContext context) async {
+    setState(() => _isLoading = true);
 
-    Navigator.of(context).pop();
+    final repository = ref.read(userManagementRepositoryProvider);
+    final result = await repository.deleteUser(widget.user.id);
 
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('${user.fullName} silindi'),
-        backgroundColor: AppColors.error,
-      ),
-    );
+    if (!mounted) return;
+
+    setState(() => _isLoading = false);
+
+    if (result.success) {
+      ref.invalidate(usersListProvider);
+      Navigator.of(context).pop();
+
+      String fullName = widget.user.personelAdi ?? widget.user.kullaniciAdi;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('$fullName silindi'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(result.message ?? 'Silme işlemi hatalı'),
+          backgroundColor: AppColors.error,
+        ),
+      );
+    }
   }
 }

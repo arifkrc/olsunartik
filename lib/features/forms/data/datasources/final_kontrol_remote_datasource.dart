@@ -7,18 +7,18 @@ class FinalKontrolRemoteDataSource {
   FinalKontrolRemoteDataSource(this._dio);
 
   Future<List<Map<String, dynamic>>> getAll() async {
-    final response = await _dio.get('/api/FinalKontrol');
+    final response = await _dio.get('FinalKontrol');
     final List<dynamic> data = response.data['data'] as List<dynamic>? ?? [];
     return data.map((json) => json as Map<String, dynamic>).toList();
   }
 
   Future<Map<String, dynamic>> getById(int id) async {
-    final response = await _dio.get('/api/FinalKontrol/$id');
+    final response = await _dio.get('FinalKontrol/$id');
     return response.data['data'] as Map<String, dynamic>;
   }
 
   Future<FinalKontrolBulkResponseDto> createForm(FinalKontrolRequestDto data) async {
-    final response = await _dio.post('/api/FinalKontrol/bulk', data: data.toJson());
+    final response = await _dio.post('FinalKontrol/bulk', data: data.toJson());
     
     if (response.data != null) {
       return FinalKontrolBulkResponseDto.fromJson(response.data);

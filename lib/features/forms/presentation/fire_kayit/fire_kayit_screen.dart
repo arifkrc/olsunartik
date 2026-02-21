@@ -16,6 +16,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/fire_kayit_providers.dart';
 import '../../data/models/fire_kayit_formu_dto.dart';
 import '../../../../core/providers/ret_kod_providers.dart';
+import '../../../../core/providers/lookup_providers.dart' hide retKodlariProvider;
+import '../../../../core/domain/entities/tezgah.dart';
+import '../../../../core/domain/entities/operasyon.dart';
+import '../../../../core/domain/entities/ret_kod.dart';
+import '../../../../core/widgets/forms/custom_object_dropdown.dart';
 
 // Section Widgets
 import 'widgets/machine_zone_selection.dart';
@@ -63,12 +68,12 @@ class _FireKayitScreenState extends ConsumerState<FireKayitScreen> {
   int? _selectedProductId;
   String? _productName;
   String? _productType;
-  String? _selectedProcessedMachine;
-  String? _selectedDetectedMachine;
+  Tezgah? _selectedProcessedMachine;
+  Tezgah? _selectedDetectedMachine;
   String? _selectedZone;
-  String? _selectedOperation;
+  Operasyon? _selectedOperation;
   String _productState = 'İşlenmiş';
-  int? _selectedRetKoduId;
+  RetKod? _selectedRetKod;
   String? _selectedOperator;
   XFile? _selectedImage;
 
@@ -98,7 +103,7 @@ class _FireKayitScreenState extends ConsumerState<FireKayitScreen> {
 
   void _addEntry() {
     // Validation
-    if (_selectedRetKoduId == null) {
+    if (_selectedRetKod == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Lütfen hata nedeni (Ret Kodu) seçin'),
@@ -122,9 +127,8 @@ class _FireKayitScreenState extends ConsumerState<FireKayitScreen> {
     setState(() {
       _entries.add(
         FireEntry(
-          errorReasonId: _selectedRetKoduId!, // Custom prop for FireEntry or just use the field directly
-          // For display purposes, you might want to fetch the string. We will handle string mapping later if needed, or modify FireEntry
-          errorReason: _selectedRetKoduId.toString(),
+          errorReasonId: _selectedRetKod!.id,
+          errorReason: '${_selectedRetKod!.kod} - ${_selectedRetKod!.aciklama}',
           quantity: quantity,
           description: _aciklamaController.text.isNotEmpty
               ? _aciklamaController.text
@@ -134,7 +138,7 @@ class _FireKayitScreenState extends ConsumerState<FireKayitScreen> {
       );
       // Clear entry-specific fields
       _quantityController.text = '1';
-      _selectedRetKoduId = null;
+      _selectedRetKod = null;
       _aciklamaController.clear();
       _selectedImage = null;
     });
@@ -331,25 +335,42 @@ class _FireKayitScreenState extends ConsumerState<FireKayitScreen> {
           const SizedBox(height: 16),
 
           // Machine & Zone & Operation & Product State (2 rows)
-          MachineZoneSelection(
-            selectedProcessedMachine: _selectedProcessedMachine,
-            selectedDetectedMachine: _selectedDetectedMachine,
-            selectedZone: _selectedZone,
-            selectedOperation: _selectedOperation,
-            machineOptions: FormOptions.machines,
-            zoneOptions: FormOptions.zones,
-            operationOptions: FormOptions.operations,
-            productState: _productState,
-            onProcessedMachineChanged: (val) =>
-                setState(() => _selectedProcessedMachine = val),
-            onDetectedMachineChanged: (val) =>
-                setState(() => _selectedDetectedMachine = val),
-            onZoneChanged: (val) => setState(() => _selectedZone = val),
-            onOperationChanged: (val) =>
-                setState(() => _selectedOperation = val),
-            onProductStateChanged: (val) =>
-                setState(() => _productState = val!),
-          ),
+          Builder(builder: (context) {
+            final tezgahlarAsync = ref.watch(tezgahlarProvider);
+            final operasyonlarAsync = ref.watch(operasyonlarProvider);
+
+            if (tezgahlarAsync.isLoading || operasyonlarAsync.isLoading) {
+              return const Center(
+                child: Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: CircularProgressIndicator(),
+                ),
+              );
+            }
+
+            final machineOptions = tezgahlarAsync.value ?? [];
+            final operationOptions = operasyonlarAsync.value ?? [];
+
+            return MachineZoneSelection(
+              selectedProcessedMachine: _selectedProcessedMachine,
+              selectedDetectedMachine: _selectedDetectedMachine,
+              selectedZone: _selectedZone,
+              selectedOperation: _selectedOperation,
+              machineOptions: machineOptions,
+              zoneOptions: FormOptions.zones,
+              operationOptions: operationOptions,
+              productState: _productState,
+              onProcessedMachineChanged: (val) =>
+                  setState(() => _selectedProcessedMachine = val),
+              onDetectedMachineChanged: (val) =>
+                  setState(() => _selectedDetectedMachine = val),
+              onZoneChanged: (val) => setState(() => _selectedZone = val),
+              onOperationChanged: (val) =>
+                  setState(() => _selectedOperation = val),
+              onProductStateChanged: (val) =>
+                  setState(() => _productState = val!),
+            );
+          }),
           const SizedBox(height: 16),
 
           // Şarj No + Adet (side by side)
@@ -419,58 +440,15 @@ class _FireKayitScreenState extends ConsumerState<FireKayitScreen> {
                               color: AppColors.error, fontSize: 13),
                         ),
                       ),
-                      data: (retKodlar) => DropdownButtonFormField<int>(
-                        initialValue: _selectedRetKoduId,
-                        dropdownColor: AppColors.surfaceLight,
-                        style: const TextStyle(
-                          color: AppColors.textMain,
-                          fontSize: 14,
-                        ),
-                        decoration: InputDecoration(
-                          labelText: 'Hata Nedeni',
-                          labelStyle: const TextStyle(
-                            color: AppColors.textSecondary,
-                          ),
-                          prefixIcon: const Icon(
-                            Icons.error_outline,
-                            color: AppColors.textSecondary,
-                            size: 18,
-                          ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide:
-                                const BorderSide(color: AppColors.border),
-                          ),
-                          enabledBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide:
-                                const BorderSide(color: AppColors.border),
-                          ),
-                          focusedBorder: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(10),
-                            borderSide: const BorderSide(
-                                color: AppColors.primary, width: 2),
-                          ),
-                          filled: true,
-                          fillColor: AppColors.surfaceLight,
-                          contentPadding: const EdgeInsets.symmetric(
-                              horizontal: 14, vertical: 12),
-                        ),
-                        items: retKodlar.map((kod) {
-                          return DropdownMenuItem<int>(
-                            value: kod.id,
-                            child: SizedBox(
-                              width: 150, // prevent overflow
-                              child: Text(
-                                kod.kod,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                          );
-                        }).toList(),
+                      data: (retKodlar) => CustomObjectDropdown<RetKod>(
+                        label: 'Hata Nedeni',
+                        value: _selectedRetKod,
+                        items: retKodlar,
+                        icon: Icons.error_outline,
+                        displayStringForOption: (kod) => kod.displayLabel,
                         onChanged: (val) {
                           setState(() {
-                            _selectedRetKoduId = val;
+                            _selectedRetKod = val;
                           });
                         },
                       ),
@@ -678,16 +656,11 @@ class _FireKayitScreenState extends ConsumerState<FireKayitScreen> {
       );
 
       // Map UI values to IDs
-      final tezgahId =
-          FormOptions.machines.indexOf(_selectedProcessedMachine!) + 1;
-      final tespitEdilenTezgahId = _selectedDetectedMachine != null
-          ? FormOptions.machines.indexOf(_selectedDetectedMachine!) + 1
-          : tezgahId; // Tespit edilen belli değilse işleneni baz al
+      final tezgahId = _selectedProcessedMachine!.id;
+      final tespitEdilenTezgahId = _selectedDetectedMachine?.id ?? tezgahId;
 
       final bolgeId = FormOptions.zones.indexOf(_selectedZone!) + 1;
-      final operasyonId = _selectedOperation != null
-          ? FormOptions.operations.indexOf(_selectedOperation!) + 1
-          : 1;
+      final operasyonId = _selectedOperation?.id ?? 1;
       final tespitEdilenOperasyonId = operasyonId; // UI'da ayrı alan yoksa operasyonla aynı alınır
 
       final malzemeDurumuId = _productState == 'Ham' ? 1 : 2;
@@ -749,7 +722,7 @@ class _FireKayitScreenState extends ConsumerState<FireKayitScreen> {
         // _selectedZone = null; // KEPT
         // _selectedOperation = null; // KEPT
         _quantityController.text = '1';
-        _selectedRetKoduId = null;
+        _selectedRetKod = null;
         _aciklamaController.clear();
         // _selectedOperator = null; // KEPT
         _selectedImage = null;

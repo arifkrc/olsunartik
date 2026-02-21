@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import '../models/product_dto.dart';
+import '../../constants/app_constants.dart';
 
 /// Product Remote DataSource
 /// Backend API'den ürün verilerini çeker
@@ -14,7 +15,7 @@ class ProductRemoteDataSource {
   /// Response: { "data": [...], "success": true }
   Future<List<ProductDto>> getAllProducts() async {
     try {
-      final response = await _dio.get('/api/lookup/urunler');
+      final response = await _dio.get('${ApiConstants.lookupBase}/urunler');
 
       if (response.statusCode == 200) {
         final data = response.data;
@@ -43,7 +44,7 @@ class ProductRemoteDataSource {
       rethrow;
     } catch (e) {
       throw DioException(
-        requestOptions: RequestOptions(path: '/api/lookup/urunler'),
+        requestOptions: RequestOptions(path: '${ApiConstants.lookupBase}/urunler'),
         error: e.toString(),
         type: DioExceptionType.unknown,
       );
@@ -59,5 +60,47 @@ class ProductRemoteDataSource {
       return p.urunKodu.toLowerCase().contains(lowerQuery) ||
           p.urunAdi.toLowerCase().contains(lowerQuery);
     }).toList();
+  }
+
+  /// Ham ürün listesini getirir
+  ///
+  /// Endpoint: GET /api/lookup/ham-urunler
+  /// Response: { "data": [...], "success": true }
+  Future<List<ProductDto>> getAllRawProducts() async {
+    try {
+      final response = await _dio.get('${ApiConstants.lookupBase}/ham-urunler');
+
+      if (response.statusCode == 200) {
+        final data = response.data;
+
+        if (data['success'] == true && data['data'] != null) {
+          final List<dynamic> productList = data['data'] as List<dynamic>;
+          return productList
+              .map((json) => ProductDto.fromJson(json as Map<String, dynamic>))
+              .toList();
+        } else {
+          throw DioException(
+            requestOptions: response.requestOptions,
+            error: data['message'] ?? 'Ham ürünler getirilemedi',
+            response: response,
+            type: DioExceptionType.badResponse,
+          );
+        }
+      } else {
+        throw DioException(
+          requestOptions: response.requestOptions,
+          response: response,
+          type: DioExceptionType.badResponse,
+        );
+      }
+    } on DioException {
+      rethrow;
+    } catch (e) {
+      throw DioException(
+        requestOptions: RequestOptions(path: '${ApiConstants.lookupBase}/ham-urunler'),
+        error: e.toString(),
+        type: DioExceptionType.unknown,
+      );
+    }
   }
 }

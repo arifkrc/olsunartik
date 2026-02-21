@@ -24,12 +24,15 @@ class NumuneRepositoryImpl implements INumuneRepository {
   Future<int> create(NumuneForm form) async {
     final dto = NumuneFormDto(
       id: form.id,
+      urunId: form.urunId,
       urunKodu: form.urunKodu,
       urunAdi: form.urunAdi,
       urunTuru: form.urunTuru,
       adet: form.adet,
-      testSonucu: form.testSonucu,
-      aciklama: form.aciklama,
+      sarjNo: form.sarjNo,
+      numuneBasligi: form.numuneBasligi,
+      genelSonuc: form.genelSonuc,
+      gorsel: form.gorsel,
       kayitTarihi: form.kayitTarihi,
     );
     return await _remoteDataSource.create(dto.toJson());
@@ -39,12 +42,15 @@ class NumuneRepositoryImpl implements INumuneRepository {
   Future<void> update(NumuneForm form) async {
     final dto = NumuneFormDto(
       id: form.id,
+      urunId: form.urunId,
       urunKodu: form.urunKodu,
       urunAdi: form.urunAdi,
       urunTuru: form.urunTuru,
       adet: form.adet,
-      testSonucu: form.testSonucu,
-      aciklama: form.aciklama,
+      sarjNo: form.sarjNo,
+      numuneBasligi: form.numuneBasligi,
+      genelSonuc: form.genelSonuc,
+      gorsel: form.gorsel,
       kayitTarihi: form.kayitTarihi,
     );
     await _remoteDataSource.update(form.id!, dto.toJson());

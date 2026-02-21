@@ -2,11 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../../core/constants/app_colors.dart';
-import '../../../../auth/domain/entities/user.dart';
+import '../../../data/models/user_management_dtos.dart';
 import '../../providers/user_management_provider.dart';
 
 class ChangePasswordDialog extends ConsumerStatefulWidget {
-  final User user;
+  final KullaniciDto user;
 
   const ChangePasswordDialog({super.key, required this.user});
 
@@ -17,13 +17,18 @@ class ChangePasswordDialog extends ConsumerStatefulWidget {
 
 class _ChangePasswordDialogState extends ConsumerState<ChangePasswordDialog> {
   final _formKey = GlobalKey<FormState>();
+  final _oldPasswordController = TextEditingController();
   final _newPasswordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  
+  bool _obscureOldPassword = true;
   bool _obscurePassword = true;
   bool _obscureConfirm = true;
+  bool _isLoading = false;
 
   @override
   void dispose() {
+    _oldPasswordController.dispose();
     _newPasswordController.dispose();
     _confirmPasswordController.dispose();
     super.dispose();
@@ -86,6 +91,34 @@ class _ChangePasswordDialogState extends ConsumerState<ChangePasswordDialog> {
               ),
               const SizedBox(height: 24),
 
+              // Old Password (Optional for SuperAdmin reset)
+              TextFormField(
+                controller: _oldPasswordController,
+                style: const TextStyle(color: AppColors.textMain),
+                obscureText: _obscureOldPassword,
+                decoration: InputDecoration(
+                  labelText: 'Mevcut Şifre (Süper Admin sıfırlıyorsa boş bırakın)',
+                  labelStyle: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                  prefixIcon: const Icon(LucideIcons.unlock, size: 18),
+                  suffixIcon: IconButton(
+                    icon: Icon(
+                      _obscureOldPassword ? LucideIcons.eyeOff : LucideIcons.eye,
+                      size: 18,
+                      color: AppColors.textSecondary,
+                    ),
+                    onPressed: () =>
+                        setState(() => _obscureOldPassword = !_obscureOldPassword),
+                  ),
+                  filled: true,
+                  fillColor: AppColors.background,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: const BorderSide(color: AppColors.border),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+
               // New Password
               TextFormField(
                 controller: _newPasswordController,
@@ -108,15 +141,15 @@ class _ChangePasswordDialogState extends ConsumerState<ChangePasswordDialog> {
                   fillColor: AppColors.background,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: AppColors.border),
+                    borderSide: const BorderSide(color: AppColors.border),
                   ),
                 ),
                 validator: (value) {
                   if (value == null || value.isEmpty) {
                     return 'Yeni şifre gerekli';
                   }
-                  if (value.length < 6) {
-                    return 'En az 6 karakter olmalı';
+                  if (value.length < 8) {
+                    return 'En az 8 karakter olmalı';
                   }
                   return null;
                 },
@@ -145,7 +178,7 @@ class _ChangePasswordDialogState extends ConsumerState<ChangePasswordDialog> {
                   fillColor: AppColors.background,
                   border: OutlineInputBorder(
                     borderRadius: BorderRadius.circular(12),
-                    borderSide: BorderSide(color: AppColors.border),
+                    borderSide: const BorderSide(color: AppColors.border),
                   ),
                 ),
                 validator: (value) {
@@ -179,7 +212,7 @@ class _ChangePasswordDialogState extends ConsumerState<ChangePasswordDialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: _changePassword,
+                      onPressed: _isLoading ? null : _changePassword,
                       style: ElevatedButton.styleFrom(
                         backgroundColor: AppColors.textSecondary,
                         foregroundColor: Colors.white,
@@ -188,7 +221,16 @@ class _ChangePasswordDialogState extends ConsumerState<ChangePasswordDialog> {
                           borderRadius: BorderRadius.circular(12),
                         ),
                       ),
-                      child: const Text('Değiştir'),
+                      child: _isLoading
+                          ? const SizedBox(
+                              width: 20,
+                              height: 20,
+                              child: CircularProgressIndicator(
+                                color: Colors.white,
+                                strokeWidth: 2,
+                              ),
+                            )
+                          : const Text('Değiştir'),
                     ),
                   ),
                 ],
@@ -200,20 +242,38 @@ class _ChangePasswordDialogState extends ConsumerState<ChangePasswordDialog> {
     );
   }
 
-  void _changePassword() {
+  Future<void> _changePassword() async {
     if (_formKey.currentState!.validate()) {
-      ref
-          .read(userManagementProvider.notifier)
-          .changePassword(widget.user.id, _newPasswordController.text);
-
-      Navigator.of(context).pop();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${widget.user.kullaniciAdi} şifresi değiştirildi'),
-          backgroundColor: AppColors.duzceGreen,
-        ),
+      setState(() => _isLoading = true);
+      
+      final repository = ref.read(userManagementRepositoryProvider);
+      final request = ChangePasswordRequest(
+        eskiParola: _oldPasswordController.text.isNotEmpty ? _oldPasswordController.text : null,
+        yeniParola: _newPasswordController.text,
       );
+
+      final result = await repository.changePassword(widget.user.id, request);
+      
+      if (!mounted) return;
+      
+      setState(() => _isLoading = false);
+      
+      if (result.success) {
+        Navigator.of(context).pop();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('${widget.user.kullaniciAdi} şifresi değiştirildi'),
+            backgroundColor: AppColors.duzceGreen,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(result.message ?? 'Şifre değiştirilemedi'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
     }
   }
 }

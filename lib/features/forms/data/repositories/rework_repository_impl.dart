@@ -21,27 +21,32 @@ class ReworkRepositoryImpl implements IReworkRepository {
   }
 
   @override
-  Future<int> create(ReworkForm form) async {
-    final dto = ReworkFormDto(
-      id: form.id,
-      urunKodu: form.urunKodu,
-      sarjNo: form.sarjNo,
-      miktar: form.miktar,
-      islemId: form.islemId,
-      aciklama: form.aciklama,
-      kayitTarihi: form.kayitTarihi,
-    );
-    return await _remoteDataSource.create(dto.toJson());
+  Future<void> createBulk(List<ReworkForm> forms) async {
+    final payloadList = forms.map((form) {
+      final dto = ReworkFormDto(
+        urunId: form.urunId,
+        adet: form.adet,
+        retKoduId: form.retKoduId,
+        sarjNo: form.sarjNo,
+        sonuc: form.sonuc,
+      );
+      return dto.toJson();
+    }).toList();
+
+    await _remoteDataSource.createBulk(payloadList);
   }
 
   @override
   Future<void> update(ReworkForm form) async {
     final dto = ReworkFormDto(
       id: form.id,
+      urunId: form.urunId,
       urunKodu: form.urunKodu,
+      urunAdi: form.urunAdi,
+      adet: form.adet,
+      retKoduId: form.retKoduId,
       sarjNo: form.sarjNo,
-      miktar: form.miktar,
-      islemId: form.islemId,
+      sonuc: form.sonuc,
       aciklama: form.aciklama,
       kayitTarihi: form.kayitTarihi,
     );

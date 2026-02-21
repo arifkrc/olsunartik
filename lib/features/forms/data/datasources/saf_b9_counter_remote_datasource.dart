@@ -8,7 +8,7 @@ class SafB9CounterRemoteDataSource {
 
   Future<String> create(SAFBRequestDto request) async {
     try {
-      final response = await _dio.post('/api/SAFB', data: request.toJson());
+      final response = await _dio.post('SAFB', data: request.toJson());
       final data = response.data;
 
       if (data['success'] == true) {

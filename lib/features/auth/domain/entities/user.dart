@@ -1,8 +1,23 @@
+enum HesapSeviyesi { operator_, admin, superAdmin }
+
+extension HesapSeviyesiExtension on String {
+  HesapSeviyesi get toHesapSeviyesi {
+    switch (toLowerCase()) {
+      case 'admin':
+        return HesapSeviyesi.admin;
+      case 'superadmin':
+        return HesapSeviyesi.superAdmin;
+      case 'operator':
+      default:
+        return HesapSeviyesi.operator_;
+    }
+  }
+}
+
 class User {
   final int id;
   final String kullaniciAdi;
-  final String
-  hesapSeviyesi; // Admin, Inspector, Operator, QualityEngineer, Manager, User
+  final String hesapSeviyesi;
   final int? personelId;
   final String? personelAdi;
   final DateTime kayitTarihi;
@@ -22,10 +37,13 @@ class User {
     this.yakiniTelefon,
   });
 
-  // Getter properties for English field names (for compatibility with screens)
+  // Getter properties for English field names
   String get username => kullaniciAdi;
   String get fullName => personelAdi ?? kullaniciAdi;
-  bool get isAdmin => hesapSeviyesi == 'Admin';
+  
+  HesapSeviyesi get role => hesapSeviyesi.toHesapSeviyesi;
+  bool get isAdmin => role == HesapSeviyesi.admin || role == HesapSeviyesi.superAdmin;
+  bool get isSuperAdmin => role == HesapSeviyesi.superAdmin;
 
   // These are now real fields
   DateTime? get birthDate => dogumTarihi;

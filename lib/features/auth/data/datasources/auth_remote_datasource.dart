@@ -1,4 +1,5 @@
 import 'package:dio/dio.dart';
+import '../../../../core/constants/app_constants.dart';
 import '../models/auth_token_dto.dart';
 import '../models/user_dto.dart';
 
@@ -9,7 +10,7 @@ class AuthRemoteDataSource {
 
   Future<AuthTokenDto> login(String kullaniciAdi, String parola) async {
     final response = await _dio.post(
-      '/api/auth/login',
+      '${ApiConstants.authBase}/auth/login',
       data: {'kullaniciAdi': kullaniciAdi, 'parola': parola},
     );
 
@@ -27,7 +28,7 @@ class AuthRemoteDataSource {
     int? personelId,
   }) async {
     final response = await _dio.post(
-      '/api/auth/register',
+      '${ApiConstants.authBase}/auth/register',
       data: {
         'kullaniciAdi': kullaniciAdi,
         'parola': parola,
@@ -44,7 +45,7 @@ class AuthRemoteDataSource {
   }
 
   Future<UserDto> getCurrentUser() async {
-    final response = await _dio.get('/api/auth/me');
+    final response = await _dio.get('${ApiConstants.authBase}/auth/me');
 
     if (response.data['success'] == true) {
       return UserDto.fromJson(response.data['data']);

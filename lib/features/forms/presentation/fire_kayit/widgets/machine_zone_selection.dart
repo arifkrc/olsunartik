@@ -1,20 +1,23 @@
 import 'package:flutter/material.dart';
 import '../../../../../core/widgets/forms/custom_dropdown.dart';
+import '../../../../../core/widgets/forms/custom_object_dropdown.dart';
+import '../../../../../core/domain/entities/tezgah.dart';
+import '../../../../../core/domain/entities/operasyon.dart';
 
 /// Machine, zone operation, and product state selection (2 rows)
 class MachineZoneSelection extends StatelessWidget {
-  final String? selectedProcessedMachine;
-  final String? selectedDetectedMachine;
+  final Tezgah? selectedProcessedMachine;
+  final Tezgah? selectedDetectedMachine;
   final String? selectedZone;
-  final String? selectedOperation;
+  final Operasyon? selectedOperation;
   final String productState;
-  final List<String> machineOptions;
+  final List<Tezgah> machineOptions;
   final List<String> zoneOptions;
-  final List<String> operationOptions;
-  final Function(String?) onProcessedMachineChanged;
-  final Function(String?) onDetectedMachineChanged;
+  final List<Operasyon> operationOptions;
+  final Function(Tezgah?) onProcessedMachineChanged;
+  final Function(Tezgah?) onDetectedMachineChanged;
   final Function(String?) onZoneChanged;
-  final Function(String?) onOperationChanged;
+  final Function(Operasyon?) onOperationChanged;
   final Function(String?) onProductStateChanged;
 
   const MachineZoneSelection({
@@ -43,10 +46,11 @@ class MachineZoneSelection extends StatelessWidget {
           children: [
             Expanded(
               flex: 3,
-              child: CustomDropdown(
+              child: CustomObjectDropdown<Tezgah>(
                 label: 'İşlenen Tezgah',
                 value: selectedProcessedMachine,
                 items: machineOptions,
+                displayStringForOption: (t) => t.displayLabel,
                 icon: Icons.precision_manufacturing_outlined,
                 onChanged: onProcessedMachineChanged,
               ),
@@ -54,10 +58,11 @@ class MachineZoneSelection extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               flex: 3,
-              child: CustomDropdown(
+              child: CustomObjectDropdown<Tezgah>(
                 label: 'Tespit Edilen',
                 value: selectedDetectedMachine,
                 items: machineOptions,
+                displayStringForOption: (t) => t.displayLabel,
                 icon: Icons.search_outlined,
                 onChanged: onDetectedMachineChanged,
               ),
@@ -82,10 +87,11 @@ class MachineZoneSelection extends StatelessWidget {
             ),
             const SizedBox(width: 12),
             Expanded(
-              child: CustomDropdown(
+              child: CustomObjectDropdown<Operasyon>(
                 label: 'Operasyon',
                 value: selectedOperation,
                 items: operationOptions,
+                displayStringForOption: (o) => o.operasyonAdi,
                 icon: Icons.settings_outlined,
                 onChanged: onOperationChanged,
               ),

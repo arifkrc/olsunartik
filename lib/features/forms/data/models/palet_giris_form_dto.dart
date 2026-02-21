@@ -3,50 +3,64 @@ import '../../domain/entities/palet_giris_form.dart';
 class PaletGirisFormDto extends PaletGirisForm {
   PaletGirisFormDto({
     super.id,
-    required super.paletNo,
-    required super.tedarikci,
-    required super.urunKodu,
-    required super.miktar,
-    required super.durum,
-    super.hasar,
-    required super.kayitTarihi,
+    required super.tedarikciAdi,
+    required super.irsaliyeNo,
+    required super.urunAdi,
+    required super.nemOlcumleri,
+    required super.fizikiYapiKontrol,
+    required super.muhurKontrol,
+    required super.irsaliyeEslestirme,
+    super.aciklama,
+    super.fotografYolu,
+    super.kayitTarihi,
   });
 
   factory PaletGirisFormDto.fromJson(Map<String, dynamic> json) {
     return PaletGirisFormDto(
       id: json['id'] as int?,
-      paletNo: json['paletNo'] as String,
-      tedarikci: json['tedarikci'] as String,
-      urunKodu: json['urunKodu'] as String,
-      miktar: json['miktar'] as int,
-      durum: json['durum'] as String,
-      hasar: json['hasar'] as String?,
-      kayitTarihi: DateTime.parse(json['kayitTarihi'] as String),
+      tedarikciAdi: json['tedarikciAdi'] as String,
+      irsaliyeNo: json['irsaliyeNo'] as String,
+      urunAdi: json['urunAdi'] as String,
+      nemOlcumleri: (json['nemOlcumleri'] as List<dynamic>)
+          .map((e) => e as int)
+          .toList(),
+      fizikiYapiKontrol: json['fizikiYapiKontrol'] as int,
+      muhurKontrol: json['muhurKontrol'] as int,
+      irsaliyeEslestirme: json['irsaliyeEslestirme'] as int,
+      aciklama: json['aciklama'] as String? ?? '',
+      fotografYolu: json['fotografYolu'] as String? ?? '',
+      kayitTarihi: json['olusturmaZamani'] != null
+          ? DateTime.parse(json['olusturmaZamani'] as String)
+          : null,
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
-      if (id != null) 'id': id,
-      'paletNo': paletNo,
-      'tedarikci': tedarikci,
-      'urunKodu': urunKodu,
-      'miktar': miktar,
-      'durum': durum,
-      if (hasar != null) 'hasar': hasar,
-      'kayitTarihi': kayitTarihi.toIso8601String(),
+      'tedarikciAdi': tedarikciAdi,
+      'irsaliyeNo': irsaliyeNo,
+      'urunAdi': urunAdi,
+      'nemOlcumleri': nemOlcumleri,
+      'fizikiYapiKontrol': fizikiYapiKontrol,
+      'muhurKontrol': muhurKontrol,
+      'irsaliyeEslestirme': irsaliyeEslestirme,
+      'aciklama': aciklama,
+      'fotografYolu': fotografYolu,
     };
   }
 
   PaletGirisForm toEntity() {
     return PaletGirisForm(
       id: id,
-      paletNo: paletNo,
-      tedarikci: tedarikci,
-      urunKodu: urunKodu,
-      miktar: miktar,
-      durum: durum,
-      hasar: hasar,
+      tedarikciAdi: tedarikciAdi,
+      irsaliyeNo: irsaliyeNo,
+      urunAdi: urunAdi,
+      nemOlcumleri: nemOlcumleri,
+      fizikiYapiKontrol: fizikiYapiKontrol,
+      muhurKontrol: muhurKontrol,
+      irsaliyeEslestirme: irsaliyeEslestirme,
+      aciklama: aciklama,
+      fotografYolu: fotografYolu,
       kayitTarihi: kayitTarihi,
     );
   }

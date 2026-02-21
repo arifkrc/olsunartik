@@ -3,45 +3,55 @@ import '../../domain/entities/rework_form.dart';
 class ReworkFormDto extends ReworkForm {
   ReworkFormDto({
     super.id,
-    required super.urunKodu,
+    required super.urunId,
+    super.urunKodu,
+    super.urunAdi,
+    required super.adet,
+    required super.retKoduId,
     required super.sarjNo,
-    required super.miktar,
-    required super.islemId,
+    required super.sonuc,
     super.aciklama,
-    required super.kayitTarihi,
+    super.kayitTarihi,
   });
 
+  /// API response'dan okurken kullanılır
   factory ReworkFormDto.fromJson(Map<String, dynamic> json) {
     return ReworkFormDto(
       id: json['id'] as int?,
-      urunKodu: json['urunKodu'] as String,
+      urunId: json['urunId'] as int,
+      urunKodu: json['urunKodu'] as String?,
+      urunAdi: json['urunAdi'] as String?,
+      adet: json['adet'] as int,
+      retKoduId: json['retKoduId'] as int,
       sarjNo: json['sarjNo'] as String,
-      miktar: json['miktar'] as int,
-      islemId: json['islemId'] as int,
-      aciklama: json['aciklama'] as String?,
-      kayitTarihi: DateTime.parse(json['kayitTarihi'] as String),
+      sonuc: json['sonuc'] as String,
+      kayitTarihi: json['olusturmaZamani'] != null
+          ? DateTime.parse(json['olusturmaZamani'] as String)
+          : null,
     );
   }
 
+  /// Bulk POST request body elemanı olarak dönüştürür
   Map<String, dynamic> toJson() {
     return {
-      if (id != null) 'id': id,
-      'urunKodu': urunKodu,
+      'urunId': urunId,
+      'adet': adet,
+      'retKoduId': retKoduId,
       'sarjNo': sarjNo,
-      'miktar': miktar,
-      'islemId': islemId,
-      if (aciklama != null) 'aciklama': aciklama,
-      'kayitTarihi': kayitTarihi.toIso8601String(),
+      'sonuc': sonuc,
     };
   }
 
   ReworkForm toEntity() {
     return ReworkForm(
       id: id,
+      urunId: urunId,
       urunKodu: urunKodu,
+      urunAdi: urunAdi,
+      adet: adet,
+      retKoduId: retKoduId,
       sarjNo: sarjNo,
-      miktar: miktar,
-      islemId: islemId,
+      sonuc: sonuc,
       aciklama: aciklama,
       kayitTarihi: kayitTarihi,
     );

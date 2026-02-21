@@ -13,6 +13,8 @@ class SearchableProductField extends ConsumerStatefulWidget {
   final TextEditingController? controller;
   final String? initialValue;
   final bool enabled;
+  final dynamic searchProvider; // A NotifierProvider of AsyncValue<List<Product>>
+  final String Function(Product)? displayStringForOption;
 
   const SearchableProductField({
     super.key,
@@ -20,6 +22,8 @@ class SearchableProductField extends ConsumerStatefulWidget {
     this.controller,
     this.initialValue,
     this.enabled = true,
+    this.searchProvider,
+    this.displayStringForOption,
   });
 
   @override
@@ -31,6 +35,7 @@ class _SearchableProductFieldState
     extends ConsumerState<SearchableProductField> {
   late TextEditingController _controller;
   Timer? _debounce;
+  late dynamic _activeProvider;
 
   @override
   void initState() {
@@ -39,6 +44,7 @@ class _SearchableProductFieldState
     if (widget.initialValue != null) {
       _controller.text = widget.initialValue!;
     }
+    _activeProvider = widget.searchProvider ?? productSearchProvider;
   }
 
   @override
@@ -55,16 +61,16 @@ class _SearchableProductFieldState
     if (_debounce?.isActive ?? false) _debounce!.cancel();
     _debounce = Timer(const Duration(milliseconds: 500), () {
       if (query.trim().length >= 2) {
-        ref.read(productSearchProvider.notifier).searchProducts(query);
+        ref.read(_activeProvider.notifier).searchProducts(query);
       } else {
-        ref.read(productSearchProvider.notifier).clear();
+        ref.read(_activeProvider.notifier).clear();
       }
     });
   }
 
   @override
   Widget build(BuildContext context) {
-    final productSearchState = ref.watch(productSearchProvider);
+    final productSearchState = ref.watch(_activeProvider);
 
     return Autocomplete<Product>(
       optionsBuilder: (TextEditingValue textEditingValue) {
@@ -74,10 +80,12 @@ class _SearchableProductFieldState
           error: (_, _) => <Product>[],
         );
       },
-      displayStringForOption: (Product product) => product.urunKodu,
+      displayStringForOption: widget.displayStringForOption ?? (Product product) => product.urunKodu,
       onSelected: (Product product) {
         setState(() {
-          _controller.text = product.urunKodu;
+          _controller.text = widget.displayStringForOption != null 
+              ? widget.displayStringForOption!(product) 
+              : product.urunKodu;
         });
         widget.onProductSelected(product);
       },
@@ -98,7 +106,7 @@ class _SearchableProductFieldState
               enabled: widget.enabled,
               style: const TextStyle(color: AppColors.textMain, fontSize: 14),
               decoration: InputDecoration(
-                labelText: 'Ürün Kodu',
+                labelText: widget.displayStringForOption != null ? 'Ürün Seçin' : 'Ürün Kodu',
                 labelStyle: const TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 13,
@@ -134,7 +142,7 @@ class _SearchableProductFieldState
                                 _controller.clear();
                                 widget.onProductSelected(null);
                                 ref
-                                    .read(productSearchProvider.notifier)
+                                    .read(_activeProvider.notifier)
                                     .clear();
                               },
                             )

@@ -24,12 +24,15 @@ class PaletGirisRepositoryImpl implements IPaletGirisRepository {
   Future<int> create(PaletGirisForm form) async {
     final dto = PaletGirisFormDto(
       id: form.id,
-      paletNo: form.paletNo,
-      tedarikci: form.tedarikci,
-      urunKodu: form.urunKodu,
-      miktar: form.miktar,
-      durum: form.durum,
-      hasar: form.hasar,
+      tedarikciAdi: form.tedarikciAdi,
+      irsaliyeNo: form.irsaliyeNo,
+      urunAdi: form.urunAdi,
+      nemOlcumleri: form.nemOlcumleri,
+      fizikiYapiKontrol: form.fizikiYapiKontrol,
+      muhurKontrol: form.muhurKontrol,
+      irsaliyeEslestirme: form.irsaliyeEslestirme,
+      aciklama: form.aciklama,
+      fotografYolu: form.fotografYolu,
       kayitTarihi: form.kayitTarihi,
     );
     return await _remoteDataSource.create(dto.toJson());
@@ -39,12 +42,15 @@ class PaletGirisRepositoryImpl implements IPaletGirisRepository {
   Future<void> update(PaletGirisForm form) async {
     final dto = PaletGirisFormDto(
       id: form.id,
-      paletNo: form.paletNo,
-      tedarikci: form.tedarikci,
-      urunKodu: form.urunKodu,
-      miktar: form.miktar,
-      durum: form.durum,
-      hasar: form.hasar,
+      tedarikciAdi: form.tedarikciAdi,
+      irsaliyeNo: form.irsaliyeNo,
+      urunAdi: form.urunAdi,
+      nemOlcumleri: form.nemOlcumleri,
+      fizikiYapiKontrol: form.fizikiYapiKontrol,
+      muhurKontrol: form.muhurKontrol,
+      irsaliyeEslestirme: form.irsaliyeEslestirme,
+      aciklama: form.aciklama,
+      fotografYolu: form.fotografYolu,
       kayitTarihi: form.kayitTarihi,
     );
     await _remoteDataSource.update(form.id!, dto.toJson());
