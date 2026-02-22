@@ -1,18 +1,21 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../../core/constants/app_colors.dart';
 import '../../../../../core/widgets/forms/sarj_no_picker.dart';
+import '../../../providers/audit_providers.dart';
+import '../../../../forms/presentation/providers/giris_kalite_kontrol_providers.dart';
 
-class EditGirisKaliteDialog extends StatefulWidget {
+class EditGirisKaliteDialog extends ConsumerStatefulWidget {
   final Map<String, dynamic> data;
 
   const EditGirisKaliteDialog({super.key, required this.data});
 
   @override
-  State<EditGirisKaliteDialog> createState() => _EditGirisKaliteDialogState();
+  ConsumerState<EditGirisKaliteDialog> createState() => _EditGirisKaliteDialogState();
 }
 
-class _EditGirisKaliteDialogState extends State<EditGirisKaliteDialog> {
+class _EditGirisKaliteDialogState extends ConsumerState<EditGirisKaliteDialog> {
   late TextEditingController _irsaliyeNoController;
   late TextEditingController _tedarikciController;
   late TextEditingController _productCodeController;
@@ -21,6 +24,7 @@ class _EditGirisKaliteDialogState extends State<EditGirisKaliteDialog> {
 
   String? _selectedDecision;
   String _batchNo = '';
+  bool _isLoading = false;
 
   final List<String> _decisions = ['Kabul', 'Red', 'Şartlı Kabul'];
 
@@ -34,16 +38,16 @@ class _EditGirisKaliteDialogState extends State<EditGirisKaliteDialog> {
       text: widget.data['tedarikci'] ?? '',
     );
     _productCodeController = TextEditingController(
-      text: widget.data['productCode'] ?? '',
+      text: widget.data['urunKodu'] ?? widget.data['productCode'] ?? '',
     );
     _descriptionController = TextEditingController(
-      text: widget.data['description'] ?? '',
+      text: widget.data['aciklama'] ?? widget.data['description'] ?? '',
     );
     _quantityController = TextEditingController(
-      text: widget.data['quantity']?.toString() ?? '',
+      text: (widget.data['miktar'] ?? widget.data['quantity'] ?? '').toString(),
     );
-    _selectedDecision = widget.data['decision'];
-    _batchNo = widget.data['batchNo'] ?? '';
+    _selectedDecision = widget.data['kabul'] ?? widget.data['decision'];
+    _batchNo = widget.data['lotNo'] ?? widget.data['batchNo'] ?? '';
   }
 
   @override
@@ -132,87 +136,96 @@ class _EditGirisKaliteDialogState extends State<EditGirisKaliteDialog> {
 
             // Content
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // İrsaliye No & Tedarikçi
-                    Row(
+              child: Stack(
+                children: [
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Expanded(
-                          child: _buildTextField(
-                            label: 'İrsaliye No',
-                            controller: _irsaliyeNoController,
-                            icon: LucideIcons.fileText,
-                          ),
+                        // İrsaliye No & Tedarikçi
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildTextField(
+                                label: 'İrsaliye No',
+                                controller: _irsaliyeNoController,
+                                icon: LucideIcons.fileText,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildTextField(
+                                label: 'Tedarikçi',
+                                controller: _tedarikciController,
+                                icon: LucideIcons.truck,
+                              ),
+                            ),
+                          ],
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildTextField(
-                            label: 'Tedarikçi',
-                            controller: _tedarikciController,
-                            icon: LucideIcons.truck,
-                          ),
+                        const SizedBox(height: 12),
+
+                        // Product Code & Quantity
+                        Row(
+                          children: [
+                            Expanded(
+                              flex: 2,
+                              child: _buildTextField(
+                                label: 'Ürün Kodu',
+                                controller: _productCodeController,
+                                icon: LucideIcons.box,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              flex: 1,
+                              child: _buildTextField(
+                                label: 'Adet',
+                                controller: _quantityController,
+                                icon: LucideIcons.hash,
+                                keyboardType: TextInputType.number,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Şarj No Picker
+                        SarjNoPicker(
+                          initialValue: _batchNo,
+                          onChanged: (value) {
+                            setState(() => _batchNo = value);
+                          },
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Decision
+                        _buildDropdown(
+                          label: 'Karar',
+                          value: _selectedDecision,
+                          items: _decisions,
+                          icon: LucideIcons.checkSquare,
+                          onChanged: (val) =>
+                              setState(() => _selectedDecision = val),
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Description
+                        _buildTextField(
+                          label: 'Açıklama',
+                          controller: _descriptionController,
+                          icon: LucideIcons.messageSquare,
+                          maxLines: 3,
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-
-                    // Product Code & Quantity
-                    Row(
-                      children: [
-                        Expanded(
-                          flex: 2,
-                          child: _buildTextField(
-                            label: 'Ürün Kodu',
-                            controller: _productCodeController,
-                            icon: LucideIcons.box,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          flex: 1,
-                          child: _buildTextField(
-                            label: 'Adet',
-                            controller: _quantityController,
-                            icon: LucideIcons.hash,
-                            keyboardType: TextInputType.number,
-                          ),
-                        ),
-                      ],
+                  ),
+                  if (_isLoading)
+                    Container(
+                      color: Colors.black26,
+                      child: const Center(child: CircularProgressIndicator()),
                     ),
-                    const SizedBox(height: 12),
-
-                    // Şarj No Picker
-                    SarjNoPicker(
-                      initialValue: _batchNo,
-                      onChanged: (value) {
-                        setState(() => _batchNo = value);
-                      },
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Decision
-                    _buildDropdown(
-                      label: 'Karar',
-                      value: _selectedDecision,
-                      items: _decisions,
-                      icon: LucideIcons.checkSquare,
-                      onChanged: (val) =>
-                          setState(() => _selectedDecision = val),
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Description
-                    _buildTextField(
-                      label: 'Açıklama',
-                      controller: _descriptionController,
-                      icon: LucideIcons.messageSquare,
-                      maxLines: 3,
-                    ),
-                  ],
-                ),
+                ],
               ),
             ),
 
@@ -230,7 +243,7 @@ class _EditGirisKaliteDialogState extends State<EditGirisKaliteDialog> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: _isLoading ? null : () => Navigator.pop(context),
                       style: OutlinedButton.styleFrom(
                         side: BorderSide(color: AppColors.border),
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -250,8 +263,10 @@ class _EditGirisKaliteDialogState extends State<EditGirisKaliteDialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: _saveChanges,
-                      icon: const Icon(LucideIcons.save, size: 16),
+                      onPressed: _isLoading ? null : _saveChanges,
+                      icon: _isLoading 
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Icon(LucideIcons.save, size: 16),
                       label: const Text(
                         'Kaydet',
                         style: TextStyle(fontWeight: FontWeight.bold),
@@ -387,10 +402,9 @@ class _EditGirisKaliteDialogState extends State<EditGirisKaliteDialog> {
     );
   }
 
-  void _saveChanges() {
-    if (_irsaliyeNoController.text.isEmpty ||
+  Future<void> _saveChanges() async {
+    if (_productCodeController.text.isEmpty ||
         _tedarikciController.text.isEmpty ||
-        _productCodeController.text.isEmpty ||
         _quantityController.text.isEmpty ||
         _selectedDecision == null) {
       ScaffoldMessenger.of(context).showSnackBar(
@@ -402,12 +416,46 @@ class _EditGirisKaliteDialogState extends State<EditGirisKaliteDialog> {
       return;
     }
 
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Giriş kalite kaydı güncellendi: ${widget.data['id']}'),
-        backgroundColor: AppColors.success,
-      ),
-    );
+    setState(() => _isLoading = true);
+
+    try {
+      final id = widget.data['id'] as int;
+      final payload = {
+        "id": id,
+        "urunId": widget.data['urunId'],
+        "tedarikci": _tedarikciController.text,
+        "urunKodu": _productCodeController.text,
+        "lotNo": _batchNo,
+        "miktar": int.tryParse(_quantityController.text) ?? 1,
+        "kabul": _selectedDecision,
+        "aciklama": _descriptionController.text,
+        "kayitTarihi": DateTime.now().toIso8601String(),
+      };
+
+      await ref.read(girisKaliteKontrolRepositoryProvider).update(id, payload);
+      
+      ref.invalidate(auditStateProvider);
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Giriş kalite kaydı başarıyla güncellendi (ID: $id)'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Hata: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 }

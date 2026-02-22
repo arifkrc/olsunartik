@@ -1,50 +1,44 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../../core/constants/app_colors.dart';
 import '../../../../../core/widgets/forms/sarj_no_picker.dart';
+import '../../../providers/audit_providers.dart';
+import '../../../../forms/presentation/providers/fire_kayit_providers.dart';
+import '../../../providers/master_data_provider.dart';
 
-class EditFireKayitDialog extends StatefulWidget {
+class EditFireKayitDialog extends ConsumerStatefulWidget {
   final Map<String, dynamic> data;
 
   const EditFireKayitDialog({super.key, required this.data});
 
   @override
-  State<EditFireKayitDialog> createState() => _EditFireKayitDialogState();
+  ConsumerState<EditFireKayitDialog> createState() => _EditFireKayitDialogState();
 }
 
-class _EditFireKayitDialogState extends State<EditFireKayitDialog> {
+class _EditFireKayitDialogState extends ConsumerState<EditFireKayitDialog> {
   late TextEditingController _productCodeController;
   late TextEditingController _quantityController;
   late TextEditingController _descriptionController;
 
-  String? _selectedErrorReason;
+  int? _selectedRejectId;
   String _batchNo = '';
-
-  final List<String> _errorReasons = [
-    'Döküm Hatası',
-    'İşlem Hatası',
-    'Malzeme Hatası',
-    'Çatlak',
-    'Gözenek',
-    'Boyut Hatası',
-    'Yüzey Hatası',
-    'Diğer',
-  ];
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _productCodeController = TextEditingController(
-      text: widget.data['productCode'] ?? '',
+      text: widget.data['urunKodu'] ?? widget.data['productCode'] ?? '',
     );
     _quantityController = TextEditingController(
-      text: widget.data['quantity']?.toString() ?? '1',
+      text: (widget.data['miktar'] ?? widget.data['quantity'])?.toString() ?? '1',
     );
     _descriptionController = TextEditingController(
-      text: widget.data['description'] ?? '',
+      text: widget.data['aciklama'] ?? widget.data['description'] ?? '',
     );
-    _selectedErrorReason = widget.data['errorReason'];
-    _batchNo = widget.data['batchNo'] ?? '';
+    _selectedRejectId = widget.data['retKoduId'] ?? widget.data['reasonId'];
+    _batchNo = widget.data['sarjNo'] ?? widget.data['batchNo'] ?? '';
   }
 
   @override
@@ -57,6 +51,8 @@ class _EditFireKayitDialogState extends State<EditFireKayitDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final rejectCodesAsync = ref.watch(rejectCodesProvider);
+
     return Dialog(
       backgroundColor: Colors.transparent,
       child: Container(
@@ -101,7 +97,7 @@ class _EditFireKayitDialogState extends State<EditFireKayitDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const Text(
                           'Fire Kaydı Düzenle',
                           style: TextStyle(
                             color: AppColors.textMain,
@@ -111,7 +107,7 @@ class _EditFireKayitDialogState extends State<EditFireKayitDialog> {
                         ),
                         Text(
                           'ID: ${widget.data['id']}',
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 11,
                             fontFamily: 'monospace',
@@ -131,56 +127,78 @@ class _EditFireKayitDialogState extends State<EditFireKayitDialog> {
 
             // Content
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Product Code
-                    _buildTextField(
-                      label: 'Ürün Kodu',
-                      controller: _productCodeController,
-                      icon: LucideIcons.box,
-                    ),
-                    const SizedBox(height: 12),
+              child: Stack(
+                children: [
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        // Product Code
+                        _buildTextField(
+                          label: 'Ürün Kodu',
+                          controller: _productCodeController,
+                          icon: LucideIcons.box,
+                        ),
+                        const SizedBox(height: 12),
 
-                    // Şarj No Picker
-                    SarjNoPicker(
-                      initialValue: _batchNo,
-                      onChanged: (value) {
-                        setState(() => _batchNo = value);
-                      },
-                    ),
-                    const SizedBox(height: 12),
+                        // Şarj No Picker
+                        SarjNoPicker(
+                          initialValue: _batchNo,
+                          onChanged: (value) {
+                            setState(() => _batchNo = value);
+                          },
+                        ),
+                        const SizedBox(height: 12),
 
-                    // Error Reason
-                    _buildDropdown(
-                      label: 'Hata Nedeni',
-                      value: _selectedErrorReason,
-                      items: _errorReasons,
-                      icon: LucideIcons.alertTriangle,
-                      onChanged: (val) =>
-                          setState(() => _selectedErrorReason = val),
-                    ),
-                    const SizedBox(height: 12),
+                        // Error Reason (Reject Codes)
+                        rejectCodesAsync.when(
+                          data: (codes) {
+                            // Ensure selected ID is still in the list or null
+                            if (_selectedRejectId != null && !codes.any((c) => c.id == _selectedRejectId)) {
+                               // If the current ID isn't in the list (e.g. old data), we might want to try mapping by name or just keeping it
+                            }
 
-                    // Quantity
-                    _buildTextField(
-                      label: 'Miktar',
-                      controller: _quantityController,
-                      icon: LucideIcons.hash,
-                    ),
-                    const SizedBox(height: 12),
+                            return _buildDropdown(
+                              label: 'Hata Nedeni',
+                              value: _selectedRejectId,
+                              items: codes.map((c) => DropdownMenuItem<int>(
+                                value: c.id,
+                                child: Text('${c.code} - ${c.description ?? ""}'),
+                              )).toList(),
+                              icon: LucideIcons.alertTriangle,
+                              onChanged: (val) => setState(() => _selectedRejectId = val),
+                            );
+                          },
+                          loading: () => const Center(child: CircularProgressIndicator()),
+                          error: (e, _) => Text('Hata: $e', style: const TextStyle(color: Colors.red)),
+                        ),
+                        const SizedBox(height: 12),
 
-                    // Description
-                    _buildTextField(
-                      label: 'Açıklama',
-                      controller: _descriptionController,
-                      icon: LucideIcons.fileText,
-                      maxLines: 3,
+                        // Quantity
+                        _buildTextField(
+                          label: 'Miktar',
+                          controller: _quantityController,
+                          icon: LucideIcons.hash,
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Description
+                        _buildTextField(
+                          label: 'Açıklama',
+                          controller: _descriptionController,
+                          icon: LucideIcons.fileText,
+                          maxLines: 3,
+                        ),
+                      ],
                     ),
-                  ],
-                ),
+                  ),
+                  if (_isLoading)
+                    Container(
+                      color: Colors.black26,
+                      child: const Center(child: CircularProgressIndicator()),
+                    ),
+                ],
               ),
             ),
 
@@ -198,7 +216,7 @@ class _EditFireKayitDialogState extends State<EditFireKayitDialog> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: _isLoading ? null : () => Navigator.pop(context),
                       style: OutlinedButton.styleFrom(
                         side: BorderSide(color: AppColors.border),
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -206,7 +224,7 @@ class _EditFireKayitDialogState extends State<EditFireKayitDialog> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child: Text(
+                      child: const Text(
                         'İptal',
                         style: TextStyle(
                           color: AppColors.textSecondary,
@@ -218,8 +236,10 @@ class _EditFireKayitDialogState extends State<EditFireKayitDialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: _saveChanges,
-                      icon: const Icon(LucideIcons.save, size: 16),
+                      onPressed: _isLoading ? null : _saveChanges,
+                      icon: _isLoading 
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Icon(LucideIcons.save, size: 16),
                       label: const Text(
                         'Kaydet',
                         style: TextStyle(fontWeight: FontWeight.bold),
@@ -255,7 +275,7 @@ class _EditFireKayitDialogState extends State<EditFireKayitDialog> {
       children: [
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             color: AppColors.textSecondary,
             fontSize: 12,
             fontWeight: FontWeight.w600,
@@ -271,7 +291,7 @@ class _EditFireKayitDialogState extends State<EditFireKayitDialog> {
           child: TextField(
             controller: controller,
             maxLines: maxLines,
-            style: TextStyle(color: AppColors.textMain, fontSize: 13),
+            style: const TextStyle(color: AppColors.textMain, fontSize: 13),
             decoration: InputDecoration(
               hintText: label,
               hintStyle: TextStyle(
@@ -292,17 +312,17 @@ class _EditFireKayitDialogState extends State<EditFireKayitDialog> {
 
   Widget _buildDropdown({
     required String label,
-    required String? value,
-    required List<String> items,
+    required int? value,
+    required List<DropdownMenuItem<int>> items,
     required IconData icon,
-    required Function(String?) onChanged,
+    required Function(int?) onChanged,
   }) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             color: AppColors.textSecondary,
             fontSize: 12,
             fontWeight: FontWeight.w600,
@@ -322,26 +342,21 @@ class _EditFireKayitDialogState extends State<EditFireKayitDialog> {
               const SizedBox(width: 8),
               Expanded(
                 child: DropdownButtonHideUnderline(
-                  child: DropdownButton<String>(
+                  child: DropdownButton<int>(
                     value: value,
-                    hint: Text(
+                    hint: const Text(
                       'Seçin',
                       style: TextStyle(color: AppColors.textSecondary),
                     ),
                     isExpanded: true,
                     dropdownColor: AppColors.surfaceLight,
-                    icon: Icon(
+                    icon: const Icon(
                       LucideIcons.chevronDown,
                       color: AppColors.textSecondary,
                       size: 16,
                     ),
-                    style: TextStyle(color: AppColors.textMain, fontSize: 13),
-                    items: items
-                        .map(
-                          (item) =>
-                              DropdownMenuItem(value: item, child: Text(item)),
-                        )
-                        .toList(),
+                    style: const TextStyle(color: AppColors.textMain, fontSize: 13),
+                    items: items,
                     onChanged: onChanged,
                   ),
                 ),
@@ -353,8 +368,8 @@ class _EditFireKayitDialogState extends State<EditFireKayitDialog> {
     );
   }
 
-  void _saveChanges() {
-    if (_productCodeController.text.isEmpty || _selectedErrorReason == null) {
+  Future<void> _saveChanges() async {
+    if (_productCodeController.text.isEmpty || _selectedRejectId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('Lütfen tüm zorunlu alanları doldurun'),
@@ -364,12 +379,44 @@ class _EditFireKayitDialogState extends State<EditFireKayitDialog> {
       return;
     }
 
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Fire kaydı güncellendi: ${widget.data['id']}'),
-        backgroundColor: AppColors.success,
-      ),
-    );
+    setState(() => _isLoading = true);
+
+    try {
+      final id = widget.data['id'] as int;
+      final payload = {
+        "id": id,
+        "urunKodu": _productCodeController.text,
+        "sarjNo": _batchNo,
+        "retKoduIds": [_selectedRejectId],
+        "miktar": int.tryParse(_quantityController.text) ?? 0,
+        "aciklama": _descriptionController.text,
+        "islemTarihi": DateTime.now().toIso8601String(),
+      };
+
+      await ref.read(fireKayitRepositoryProvider).updateForm(id, payload);
+      
+      ref.invalidate(auditStateProvider);
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Fire kaydı başarıyla güncellendi (ID: $id)'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Hata: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 }

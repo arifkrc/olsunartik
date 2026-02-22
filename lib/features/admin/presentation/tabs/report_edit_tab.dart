@@ -1,4 +1,6 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../core/constants/app_colors.dart';
@@ -17,15 +19,17 @@ import '../dialogs/edit_forms/edit_giris_kalite_dialog.dart';
 import '../dialogs/edit_forms/edit_palet_giris_dialog.dart';
 import '../dialogs/edit_forms/edit_saf_b9_dialog.dart';
 import '../../../forms/presentation/palet_giris_kalite_screen.dart';
+import '../../domain/entities/audit_action.dart';
+import '../providers/audit_providers.dart';
 
-class ReportEditTab extends StatefulWidget {
+class ReportEditTab extends ConsumerStatefulWidget {
   const ReportEditTab({super.key});
 
   @override
-  State<ReportEditTab> createState() => _ReportEditTabState();
+  ConsumerState<ReportEditTab> createState() => _ReportEditTabState();
 }
 
-class _ReportEditTabState extends State<ReportEditTab> {
+class _ReportEditTabState extends ConsumerState<ReportEditTab> {
   int _selectedFormIndex = 0;
   DateTime _selectedDate = DateTime.now();
   String? _selectedShift; // null = 'Tümü', 'Gündüz', 'Gece'
@@ -35,43 +39,43 @@ class _ReportEditTabState extends State<ReportEditTab> {
       'title': 'Kalite Onay',
       'icon': LucideIcons.checkCircle,
       'color': Colors.blue,
-      'type': 'quality_approval',
+      'type': 'KaliteOnay',
     },
     {
       'title': 'Final Kontrol',
       'icon': LucideIcons.packageCheck,
       'color': Colors.green,
-      'type': 'final_control',
+      'type': 'FinalKontrol',
     },
     {
       'title': 'Fire Kayıt',
       'icon': LucideIcons.flame,
       'color': Colors.red,
-      'type': 'fire_kayit',
+      'type': 'FireKayitFormu',
     },
     {
       'title': 'Rework Takip',
       'icon': LucideIcons.refreshCw,
       'color': AppColors.reworkOrange,
-      'type': 'rework',
+      'type': 'Rework',
     },
     {
       'title': 'Giriş Kalite',
       'icon': LucideIcons.clipboardCheck,
       'color': Colors.purple,
-      'type': 'giris_kalite',
+      'type': 'GirisKalite',
     },
     {
       'title': 'Palet Giriş',
       'icon': LucideIcons.packageCheck,
       'color': Colors.teal,
-      'type': 'palet_giris',
+      'type': 'PaletGiris',
     },
     {
       'title': 'SAF B9',
       'icon': LucideIcons.factory,
       'color': Colors.blueGrey,
-      'type': 'saf_b9',
+      'type': 'SafB9',
     },
   ];
 
@@ -356,335 +360,308 @@ class _ReportEditTabState extends State<ReportEditTab> {
   }
 
   Widget _buildHistoryList() {
+    final auditState = ref.watch(auditStateProvider);
     final currentForm = _forms[_selectedFormIndex];
     final formType = currentForm['type'] as String;
     final color = currentForm['color'] as Color;
 
-    // Generate mock data and filter
-    final allRecords = List.generate(20, (index) {
-      final daysAgo = index ~/ 3;
-      final date = DateTime.now().subtract(Duration(days: daysAgo));
-      final shiftIndex = index % 3;
-      final shift = shiftIndex == 0
-          ? '08:00 - 16:00'
-          : shiftIndex == 1
-          ? '16:00 - 00:00'
-          : '00:00 - 08:00';
-      final mockData = _getMockDataForType(formType, index);
-      mockData['date'] = date;
-      mockData['shift'] = shift;
-      return mockData;
-    });
+    return auditState.when(
+      loading: () => const Center(child: CircularProgressIndicator()),
+      error: (e, s) => Center(child: Text('Hata: $e')),
+      data: (allActions) {
+        // Filter actions:
+        // 1. Matches varlikTipi
+        // 2. Matches selectedDate
+        // 3. Matches selectedShift (if not null)
+        final filteredActions = allActions.where((action) {
+          // Type filter
+          if (action.varlikTipi != formType) return false;
 
-    // Apply filters
-    final filteredRecords = allRecords.where((record) {
-      final recordDate = record['date'] as DateTime;
-      final recordShift = record['shift'] as String;
+          // Date filter (action.islemTarihi or similar field if available, 
+          // but AuditAction might have its own timestamp)
+          // Let's assume action.islemTarihi matches the form's creation date
+          final actionDate = action.islemTarihi;
+          final isSameDay = actionDate.year == _selectedDate.year &&
+                            actionDate.month == _selectedDate.month &&
+                            actionDate.day == _selectedDate.day;
+          if (!isSameDay) return false;
 
-      // Date filter (same day)
-      final isSameDay =
-          recordDate.year == _selectedDate.year &&
-          recordDate.month == _selectedDate.month &&
-          recordDate.day == _selectedDate.day;
+          // Shift filter (this would require 'vardiya' to be in the JSON payload or a separate field)
+          if (_selectedShift != null) {
+            try {
+              final data = jsonDecode(action.yeniDeger) as Map<String, dynamic>;
+              if (data['vardiya'] != _selectedShift) return false;
+            } catch (_) {
+              return false;
+            }
+          }
 
-      if (!isSameDay) return false;
+          return true;
+        }).toList();
 
-      // Shift filter
-      if (_selectedShift != null && recordShift != _selectedShift) {
-        return false;
-      }
-
-      return true;
-    }).toList();
-
-    if (filteredRecords.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(
-              LucideIcons.inbox,
-              size: 48,
-              color: AppColors.textSecondary.withValues(alpha: 0.5),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              'Bu tarih ve vardiya için kayıt bulunamadı',
-              style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: filteredRecords.length,
-      itemBuilder: (context, index) {
-        final mockData = filteredRecords[index];
-        final date = mockData['date'] as DateTime;
-
-        return Container(
-          margin: const EdgeInsets.only(bottom: 12),
-          padding: const EdgeInsets.all(12), // Reduced padding
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: AppColors.glassBorder),
-          ),
-          child: Row(
-            children: [
-              // Icon Box
-              Container(
-                padding: const EdgeInsets.all(10),
-                decoration: BoxDecoration(
-                  color: color.withValues(alpha: 0.1),
-                  borderRadius: BorderRadius.circular(8),
+        if (filteredActions.isEmpty) {
+          return Center(
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(
+                  LucideIcons.inbox,
+                  size: 48,
+                  color: AppColors.textSecondary.withValues(alpha: 0.5),
                 ),
-                child: Icon(
-                  currentForm['icon'] as IconData,
-                  color: color,
-                  size: 20,
+                const SizedBox(height: 16),
+                Text(
+                  'Bu tarih ve form için kayıt bulunamadı',
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
                 ),
+              ],
+            ),
+          );
+        }
+
+        return ListView.builder(
+          padding: const EdgeInsets.all(16),
+          itemCount: filteredActions.length,
+          itemBuilder: (context, index) {
+            final action = filteredActions[index];
+            Map<String, dynamic> data = {};
+            try {
+              data = jsonDecode(action.yeniDeger) as Map<String, dynamic>;
+            } catch (e) {
+              return Text('Veri okuma hatası: $e');
+            }
+
+            return Container(
+              margin: const EdgeInsets.only(bottom: 12),
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: AppColors.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.glassBorder),
               ),
-              const SizedBox(width: 12),
-
-              // Details
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
+              child: Row(
+                children: [
+                  Container(
+                    padding: const EdgeInsets.all(10),
+                    decoration: BoxDecoration(
+                      color: color.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Icon(
+                      currentForm['icon'] as IconData,
+                      color: color,
+                      size: 20,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
-                          '${currentForm['title']} #${1900 + index}',
-                          style: const TextStyle(
-                            color: AppColors.textMain,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: AppColors.surfaceLight,
-                            borderRadius: BorderRadius.circular(4),
-                            border: Border.all(color: AppColors.glassBorder),
-                          ),
-                          child: Text(
-                            DateFormat('dd.MM.yyyy HH:mm').format(date),
-                            style: const TextStyle(
-                              color: AppColors.textSecondary,
-                              fontSize: 10,
+                        Row(
+                          children: [
+                            Text(
+                              '${currentForm['title']} Kaydı',
+                              style: const TextStyle(
+                                color: AppColors.textMain,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
                             ),
+                            const SizedBox(width: 8),
+                            Container(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              decoration: BoxDecoration(
+                                color: AppColors.surfaceLight,
+                                borderRadius: BorderRadius.circular(4),
+                                border: Border.all(color: AppColors.glassBorder),
+                              ),
+                              child: Text(
+                                DateFormat('HH:mm').format(action.islemTarihi),
+                                style: const TextStyle(
+                                  color: AppColors.textSecondary,
+                                  fontSize: 10,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          _getSummaryText(formType, data),
+                          style: const TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                          'Yapan: ${action.kullaniciAdi}',
+                          style: TextStyle(
+                            color: AppColors.textSecondary.withValues(alpha: 0.7),
+                            fontSize: 11,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 4),
-                    Text(
-                      _getSummaryText(formType, mockData),
-                      style: const TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Op: Ahmet Yılmaz',
-                      style: TextStyle(
-                        color: AppColors.textSecondary.withValues(alpha: 0.7),
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              // Actions
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  IconButton(
-                    icon: const Icon(
-                      LucideIcons.edit,
-                      size: 18,
-                      color: AppColors.primary,
-                    ),
-                    tooltip: 'Düzenle',
-                    onPressed: () => _openEditDialog(formType, mockData),
-                    style: IconButton.styleFrom(
-                      backgroundColor: AppColors.primary.withValues(alpha: 0.1),
-                      padding: const EdgeInsets.all(8),
-                    ),
                   ),
-                  const SizedBox(width: 8),
-                  IconButton(
-                    icon: const Icon(
-                      LucideIcons.trash2,
-                      size: 18,
-                      color: AppColors.error,
-                    ),
-                    tooltip: 'Sil',
-                    onPressed: () => _showDeleteDialog(formType, mockData),
-                    style: IconButton.styleFrom(
-                      backgroundColor: AppColors.error.withValues(alpha: 0.1),
-                      padding: const EdgeInsets.all(8),
-                    ),
+                  Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      IconButton(
+                        icon: const Icon(LucideIcons.edit, size: 18, color: AppColors.primary),
+                        tooltip: 'Düzenle',
+                        onPressed: () => _openEditDialog(formType, data, action.varlikId),
+                        style: IconButton.styleFrom(
+                          backgroundColor: AppColors.primary.withValues(alpha: 0.1),
+                          padding: const EdgeInsets.all(8),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      IconButton(
+                        icon: const Icon(LucideIcons.trash2, size: 18, color: AppColors.error),
+                        tooltip: 'Sil',
+                        onPressed: () => _showDeleteDialog(formType, data, action.varlikId),
+                        style: IconButton.styleFrom(
+                          backgroundColor: AppColors.error.withValues(alpha: 0.1),
+                          padding: const EdgeInsets.all(8),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
-            ],
-          ),
+            );
+          },
         );
       },
     );
   }
 
-  // --- Mock Data Helpers ---
-
-  Map<String, dynamic> _getMockDataForType(String type, int index) {
-    // Return appropriate mock data based on form type
-    switch (type) {
-      case 'quality_approval':
-        return {
-          'id': 'QA-${1000 + index}',
-          'productGroup': index % 2 == 0 ? 'Fren Diski' : 'Poyra',
-          'status': index % 5 == 0 ? 'RET' : 'Uygun', // Some rejections
-          'notes': 'Yüzey kontrolü yapıldı.',
-        };
-      case 'final_control':
-        return {
-          'id': 'FC-${1000 + index}',
-          'productCode': '6312011',
-          'packaged': 150 + index,
-          'scrap': index % 10,
-          'rework': 0,
-        };
-      case 'fire_kayit':
-        return {
-          'id': 'FR-${1000 + index}',
-          'productCode': 'HM-5050',
-          'quantity': (index % 3) + 1,
-          'reason': 'H001 - Yüzey Hatası',
-          'zone': 'D2 Hattı',
-        };
-      case 'rework':
-        return {
-          'id': 'RW-${1000 + index}',
-          'productGroup': 'Fren Kampanası',
-          'process': 'Çapak Alma',
-          'quantity': 10 + index,
-        };
-      case 'giris_kalite':
-        return {
-          'id': 'GK-${1000 + index}',
-          'irsaliyeNo': 'IRS-2026-${100 + index}',
-          'tedarikci': 'Tedarikçi A.Ş.',
-          'productCode': 'TR-900',
-          'quantity': 100 + (index * 10),
-          'description': '',
-          'batchNo': 'LOT-${202400 + index}',
-          'decision': index % 3 == 0 ? 'Şartlı Kabul' : 'Kabul',
-        };
-      case 'palet_giris':
-        return {
-          'id': 'PG-${1000 + index}',
-          'supplier': 'Tedarikçi B.Ş.',
-          'waybill': 'IRS-2026-${200 + index}',
-          'humidity': '45, 48', // string representation for mock
-          'fiziki': 'Kabul',
-          'muhur': 'Kabul',
-          'irsaliye': 'Kabul',
-          'notes': 'Palet sağlam.',
-        };
-      case 'saf_b9':
-        return {
-          'id': 'SAF-${1000 + index}',
-          'productCode': 'SAF-B9-GEN2',
-          'duzce': 50 + index,
-          'almanya': 20,
-          'hurda': 1,
-        };
-      default:
-        return {};
-    }
-  }
-
   String _getSummaryText(String type, Map<String, dynamic> data) {
-    switch (type) {
-      case 'quality_approval':
-        return '${data['productGroup']} - ${data['status']}';
-      case 'final_control':
-        return 'Paket: ${data['packaged']} | Hurda: ${data['scrap']}';
-      case 'fire_kayit':
-        return '${data['productCode']} - ${data['quantity']} Adet - ${data['reason']}';
-      case 'rework':
-        return '${data['productGroup']} - ${data['process']} (${data['quantity']})';
-      case 'giris_kalite':
-        return '${data['tedarikci']} - ${data['decision']}';
-      case 'palet_giris':
-        return '${data['supplier']} - Nem: %${data['humidity'] ?? '-'}';
-      case 'saf_b9':
-        return 'Düzce: ${data['duzce']} | Almanya: ${data['almanya']}';
-      default:
-        return 'Detay bilgisi yok';
+    try {
+      switch (type) {
+        case 'KaliteOnay':
+          final decision = data['isUygun'] == true ? 'Kabul' : 'Ret';
+          return '${data['urunKodu'] ?? '-'} | ${data['adet'] ?? 0} Adet - $decision';
+        case 'FinalKontrol':
+          final p = data['paketAdet'] ?? data['toplamAdet'] ?? 0;
+          final r = data['retAdet'] ?? data['toplamRed'] ?? 0;
+          return '${data['urunKodu'] ?? '-'} | Paket: $p | Red: $r';
+        case 'FireKayitFormu':
+          return '${data['urunKodu'] ?? '-'} | ${data['miktar'] ?? 0} Adet - ID: ${data['retKoduId'] ?? '-'}';
+        case 'Rework':
+          return '${data['urunKodu'] ?? '-'} | ${data['adet'] ?? 0} Adet - Sonuç: ${data['sonuc'] ?? '-'}';
+        case 'GirisKalite':
+          final m = data['miktar'] ?? 0;
+          final status = data['kabul'] == true ? 'Kabul' : 'Ret';
+          return '${data['urunKodu'] ?? '-'} | $m Adet - $status';
+        case 'PaletGiris':
+          return '${data['tedarikciAdi'] ?? '-'} | İrsaliye: ${data['irsaliyeNo'] ?? '-'} | Ürün: ${data['urunAdi'] ?? '-'}';
+        case 'SafB9':
+          final d = data['duzce'] ?? data['duzceSayac'] ?? 0;
+          final a = data['almanya'] ?? data['almanyaSayac'] ?? 0;
+          return '${data['urunKodu'] ?? '-'} | D: $d | A: $a | Hurda: ${data['retAdet'] ?? 0}';
+        default:
+          return 'Veri detayı görüntülenemiyor';
+      }
+    } catch (_) {
+      return 'Veri formatı uyumsuz';
     }
   }
 
-  void _showDeleteDialog(String type, Map<String, dynamic> data) {
+  void _showDeleteDialog(String type, Map<String, dynamic> data, int? id) {
+    if (id == null) return;
     showDialog(
       context: context,
       builder: (context) => DeleteConfirmationDialog(
         formType: type,
-        recordId: data['id'] ?? 'Unknown',
-        onConfirm: () {
-          setState(() {
-            // In real app, this would call an API to delete
-            // For now, just show success message
-          });
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Kayıt silindi: ${data['id']}'),
-              backgroundColor: AppColors.success,
-              duration: const Duration(seconds: 2),
-            ),
-          );
+        recordId: id.toString(),
+        onConfirm: () async {
+          try {
+            switch (type) {
+              case 'KaliteOnay':
+                await ref.read(qualityApprovalRepositoryProvider).delete(id);
+                break;
+              case 'FinalKontrol':
+                await ref.read(finalKontrolRepositoryProvider).delete(id);
+                break;
+              case 'FireKayitFormu':
+                await ref.read(fireKayitRepositoryProvider).deleteForm(id);
+                break;
+              case 'Rework':
+                await ref.read(reworkRepositoryProvider).delete(id);
+                break;
+              case 'GirisKalite':
+                await ref.read(girisKaliteKontrolRepositoryProvider).delete(id);
+                break;
+              case 'PaletGiris':
+                await ref.read(paletGirisRepositoryProvider).delete(id);
+                break;
+              case 'SafB9':
+                await ref.read(safB9CounterRepositoryProvider).delete(id);
+                break;
+            }
+
+            ref.invalidate(auditStateProvider);
+
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Kayıt başarıyla silindi (ID: $id)'),
+                  backgroundColor: AppColors.success,
+                ),
+              );
+            }
+          } catch (e) {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: Text('Silme hatası: $e'),
+                  backgroundColor: AppColors.error,
+                ),
+              );
+            }
+          }
         },
       ),
     );
   }
 
-  void _openEditDialog(String type, Map<String, dynamic> data) {
-    Widget? dialog;
+  void _openEditDialog(String type, Map<String, dynamic> data, int? id) {
+    if (id == null) return;
+    
+    // Ensure the data map has the 'id' for the dialogs to use
+    final editData = Map<String, dynamic>.from(data);
+    editData['id'] = id;
 
+    Widget? dialog;
     switch (type) {
-      case 'quality_approval':
-        dialog = EditQualityApprovalDialog(data: data);
+      case 'KaliteOnay':
+        dialog = EditQualityApprovalDialog(data: editData); // Needs update to hit PUT
         break;
-      case 'final_control':
-        dialog = EditFinalControlDialog(data: data);
+      case 'FinalKontrol':
+        dialog = EditFinalControlDialog(data: editData);
         break;
-      case 'fire_kayit':
-        dialog = EditFireKayitDialog(data: data);
+      case 'FireKayitFormu':
+        dialog = EditFireKayitDialog(data: editData);
         break;
-      case 'rework':
-        dialog = EditReworkDialog(data: data);
+      case 'Rework':
+        dialog = EditReworkDialog(data: editData);
         break;
-      case 'giris_kalite':
-        dialog = EditGirisKaliteDialog(data: data);
+      case 'GirisKalite':
+        dialog = EditGirisKaliteDialog(data: editData);
         break;
-      case 'palet_giris':
-        dialog = EditPaletGirisDialog(data: data);
+      case 'PaletGiris':
+        dialog = EditPaletGirisDialog(data: editData);
         break;
-      case 'saf_b9':
-        dialog = EditSafB9Dialog(data: data);
+      case 'SafB9':
+        dialog = EditSafB9Dialog(data: editData);
         break;
     }
 

@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../../core/constants/app_colors.dart';
+import '../../../providers/audit_providers.dart';
+import '../../../../forms/presentation/providers/saf_b9_counter_providers.dart';
 
-class EditSafB9Dialog extends StatefulWidget {
+class EditSafB9Dialog extends ConsumerStatefulWidget {
   final Map<String, dynamic> data;
 
   const EditSafB9Dialog({super.key, required this.data});
 
   @override
-  State<EditSafB9Dialog> createState() => _EditSafB9DialogState();
+  ConsumerState<EditSafB9Dialog> createState() => _EditSafB9DialogState();
 }
 
-class _EditSafB9DialogState extends State<EditSafB9Dialog> {
+class _EditSafB9DialogState extends ConsumerState<EditSafB9Dialog> {
   late TextEditingController _duzceController;
   late TextEditingController _almanyaController;
   late TextEditingController _hurdaController;
@@ -19,6 +22,7 @@ class _EditSafB9DialogState extends State<EditSafB9Dialog> {
   late TextEditingController _descriptionController;
 
   String? _selectedTezgah;
+  bool _isLoading = false;
 
   final List<String> _tezgahOptions = [
     'Tezgah 1',
@@ -32,21 +36,21 @@ class _EditSafB9DialogState extends State<EditSafB9Dialog> {
   void initState() {
     super.initState();
     _duzceController = TextEditingController(
-      text: widget.data['duzce']?.toString() ?? '0',
+      text: (widget.data['duzce'] ?? widget.data['paketAdet'] ?? 0).toString(),
     );
     _almanyaController = TextEditingController(
-      text: widget.data['almanya']?.toString() ?? '0',
+      text: (widget.data['almanya'] ?? widget.data['almanyaAdet'] ?? 0).toString(),
     );
     _hurdaController = TextEditingController(
-      text: widget.data['hurda']?.toString() ?? '0',
+      text: (widget.data['hurda'] ?? widget.data['retAdet'] ?? 0).toString(),
     );
     _reworkController = TextEditingController(
-      text: widget.data['rework']?.toString() ?? '0',
+      text: (widget.data['rework'] ?? widget.data['reworkAdet'] ?? 0).toString(),
     );
     _descriptionController = TextEditingController(
-      text: widget.data['description'] ?? '',
+      text: widget.data['aciklama'] ?? widget.data['description'] ?? '',
     );
-    _selectedTezgah = widget.data['tezgah'];
+    _selectedTezgah = widget.data['tezgah'] ?? widget.data['tezgahNo'];
   }
 
   @override
@@ -105,7 +109,7 @@ class _EditSafB9DialogState extends State<EditSafB9Dialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(
+                        const Text(
                           'SAF B9 Kaydı Düzenle',
                           style: TextStyle(
                             color: AppColors.textMain,
@@ -115,7 +119,7 @@ class _EditSafB9DialogState extends State<EditSafB9Dialog> {
                         ),
                         Text(
                           'ID: ${widget.data['id']}',
-                          style: TextStyle(
+                          style: const TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 11,
                             fontFamily: 'monospace',
@@ -135,87 +139,96 @@ class _EditSafB9DialogState extends State<EditSafB9Dialog> {
 
             // Content
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Product Info (Read-only)
-                    _buildReadOnlyInfo(),
-                    const SizedBox(height: 16),
-
-                    // Tezgah Selection
-                    _buildDropdown(
-                      label: 'Tezgah',
-                      value: _selectedTezgah,
-                      items: _tezgahOptions,
-                      icon: LucideIcons.settings,
-                      onChanged: (val) => setState(() => _selectedTezgah = val),
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Production Counters
-                    Text(
-                      'Üretim Sayaçları',
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    Row(
+              child: Stack(
+                children: [
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Expanded(
-                          child: _buildCounterField(
-                            label: 'Düzce',
-                            controller: _duzceController,
-                            color: AppColors.duzceGreen,
+                        // Product Info (Read-only)
+                        _buildReadOnlyInfo(),
+                        const SizedBox(height: 16),
+
+                        // Tezgah Selection
+                        _buildDropdown(
+                          label: 'Tezgah',
+                          value: _selectedTezgah,
+                          items: _tezgahOptions,
+                          icon: LucideIcons.settings,
+                          onChanged: (val) => setState(() => _selectedTezgah = val),
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Production Counters
+                        const Text(
+                          'Üretim Sayaçları',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildCounterField(
-                            label: 'Almanya',
-                            controller: _almanyaController,
-                            color: AppColors.almanyaBlue,
-                          ),
+                        const SizedBox(height: 8),
+
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildCounterField(
+                                label: 'Düzce',
+                                controller: _duzceController,
+                                color: AppColors.duzceGreen,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildCounterField(
+                                label: 'Almanya',
+                                controller: _almanyaController,
+                                color: AppColors.almanyaBlue,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildCounterField(
+                                label: 'Hurda',
+                                controller: _hurdaController,
+                                color: AppColors.error,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildCounterField(
+                                label: 'Rework',
+                                controller: _reworkController,
+                                color: AppColors.reworkOrange,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Description
+                        _buildTextField(
+                          label: 'Açıklama',
+                          controller: _descriptionController,
+                          icon: LucideIcons.fileText,
+                          maxLines: 3,
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildCounterField(
-                            label: 'Hurda',
-                            controller: _hurdaController,
-                            color: AppColors.error,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildCounterField(
-                            label: 'Rework',
-                            controller: _reworkController,
-                            color: AppColors.reworkOrange,
-                          ),
-                        ),
-                      ],
+                  ),
+                  if (_isLoading)
+                    Container(
+                      color: Colors.black26,
+                      child: const Center(child: CircularProgressIndicator()),
                     ),
-                    const SizedBox(height: 12),
-
-                    // Description
-                    _buildTextField(
-                      label: 'Açıklama',
-                      controller: _descriptionController,
-                      icon: LucideIcons.fileText,
-                      maxLines: 3,
-                    ),
-                  ],
-                ),
+                ],
               ),
             ),
 
@@ -233,7 +246,7 @@ class _EditSafB9DialogState extends State<EditSafB9Dialog> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: _isLoading ? null : () => Navigator.pop(context),
                       style: OutlinedButton.styleFrom(
                         side: BorderSide(color: AppColors.border),
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -241,7 +254,7 @@ class _EditSafB9DialogState extends State<EditSafB9Dialog> {
                           borderRadius: BorderRadius.circular(8),
                         ),
                       ),
-                      child: Text(
+                      child: const Text(
                         'İptal',
                         style: TextStyle(
                           color: AppColors.textSecondary,
@@ -253,8 +266,10 @@ class _EditSafB9DialogState extends State<EditSafB9Dialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: _saveChanges,
-                      icon: const Icon(LucideIcons.save, size: 16),
+                      onPressed: _isLoading ? null : _saveChanges,
+                      icon: _isLoading 
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Icon(LucideIcons.save, size: 16),
                       label: const Text(
                         'Kaydet',
                         style: TextStyle(fontWeight: FontWeight.bold),
@@ -292,9 +307,9 @@ class _EditSafB9DialogState extends State<EditSafB9Dialog> {
         children: [
           Row(
             children: [
-              Icon(LucideIcons.info, color: AppColors.textSecondary, size: 16),
+              const Icon(LucideIcons.info, color: AppColors.textSecondary, size: 16),
               const SizedBox(width: 8),
-              Text(
+              const Text(
                 'Ürün Bilgisi',
                 style: TextStyle(
                   color: AppColors.textSecondary,
@@ -305,11 +320,11 @@ class _EditSafB9DialogState extends State<EditSafB9Dialog> {
             ],
           ),
           const SizedBox(height: 12),
-          _buildInfoRow('Ürün Kodu', '6312011'),
+          _buildInfoRow('Ürün Kodu', widget.data['urunKodu'] ?? '6312011'),
           const SizedBox(height: 8),
-          _buildInfoRow('Teknik Resim', 'FRB1201'),
+          _buildInfoRow('Teknik Resim', widget.data['teknikResim'] ?? 'FRB1201'),
           const SizedBox(height: 8),
-          _buildInfoRow('Ürün Adı', 'SAF B9'),
+          _buildInfoRow('Ürün Adı', widget.data['urunAdi'] ?? 'SAF B9'),
         ],
       ),
     );
@@ -321,11 +336,11 @@ class _EditSafB9DialogState extends State<EditSafB9Dialog> {
       children: [
         Text(
           label,
-          style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
+          style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
         ),
         Text(
           value,
-          style: TextStyle(
+          style: const TextStyle(
             color: AppColors.textMain,
             fontSize: 13,
             fontWeight: FontWeight.bold,
@@ -347,7 +362,7 @@ class _EditSafB9DialogState extends State<EditSafB9Dialog> {
       children: [
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             color: AppColors.textSecondary,
             fontSize: 12,
             fontWeight: FontWeight.w600,
@@ -363,7 +378,7 @@ class _EditSafB9DialogState extends State<EditSafB9Dialog> {
           child: TextField(
             controller: controller,
             maxLines: maxLines,
-            style: TextStyle(color: AppColors.textMain, fontSize: 13),
+            style: const TextStyle(color: AppColors.textMain, fontSize: 13),
             decoration: InputDecoration(
               hintText: label,
               hintStyle: TextStyle(
@@ -394,7 +409,7 @@ class _EditSafB9DialogState extends State<EditSafB9Dialog> {
       children: [
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             color: AppColors.textSecondary,
             fontSize: 12,
             fontWeight: FontWeight.w600,
@@ -416,18 +431,18 @@ class _EditSafB9DialogState extends State<EditSafB9Dialog> {
                 child: DropdownButtonHideUnderline(
                   child: DropdownButton<String>(
                     value: value,
-                    hint: Text(
+                    hint: const Text(
                       'Seçin',
                       style: TextStyle(color: AppColors.textSecondary),
                     ),
                     isExpanded: true,
                     dropdownColor: AppColors.surfaceLight,
-                    icon: Icon(
+                    icon: const Icon(
                       LucideIcons.chevronDown,
                       color: AppColors.textSecondary,
                       size: 16,
                     ),
-                    style: TextStyle(color: AppColors.textMain, fontSize: 13),
+                    style: const TextStyle(color: AppColors.textMain, fontSize: 13),
                     items: items
                         .map(
                           (item) =>
@@ -455,7 +470,7 @@ class _EditSafB9DialogState extends State<EditSafB9Dialog> {
       children: [
         Text(
           label,
-          style: TextStyle(
+          style: const TextStyle(
             color: AppColors.textSecondary,
             fontSize: 12,
             fontWeight: FontWeight.w600,
@@ -488,7 +503,7 @@ class _EditSafB9DialogState extends State<EditSafB9Dialog> {
     );
   }
 
-  void _saveChanges() {
+  Future<void> _saveChanges() async {
     if (_selectedTezgah == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -499,12 +514,45 @@ class _EditSafB9DialogState extends State<EditSafB9Dialog> {
       return;
     }
 
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('SAF B9 kaydı güncellendi: ${widget.data['id']}'),
-        backgroundColor: AppColors.success,
-      ),
-    );
+    setState(() => _isLoading = true);
+
+    try {
+      final id = widget.data['id'] as int;
+      final payload = {
+        "id": id,
+        "tezgahNo": _selectedTezgah,
+        "duzce": int.tryParse(_duzceController.text) ?? 0,
+        "almanya": int.tryParse(_almanyaController.text) ?? 0,
+        "retAdet": int.tryParse(_hurdaController.text) ?? 0,
+        "reworkAdet": int.tryParse(_reworkController.text) ?? 0,
+        "aciklama": _descriptionController.text,
+        "islemTarihi": DateTime.now().toIso8601String(),
+      };
+
+      await ref.read(safB9CounterRepositoryProvider).update(id, payload);
+      
+      ref.invalidate(auditStateProvider);
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('SAF B9 kaydı başarıyla güncellendi (ID: $id)'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Hata: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 }

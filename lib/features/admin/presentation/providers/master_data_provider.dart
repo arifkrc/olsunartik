@@ -1,241 +1,171 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/network/dio_client.dart';
+import '../../data/datasources/lookup_remote_datasource.dart';
+import '../../data/repositories/lookup_repository_impl.dart';
+import '../../domain/repositories/i_lookup_repository.dart';
 import '../../domain/entities/master_data_item.dart';
 
-// Mock master data notifier
-class MasterDataNotifier extends Notifier<List<MasterDataItem>> {
+final lookupRemoteDataSourceProvider = Provider<LookupRemoteDataSource>((ref) {
+  return LookupRemoteDataSource(ref.watch(dioClientProvider));
+});
+
+final lookupRepositoryProvider = Provider<ILookupRepository>((ref) {
+  return LookupRepositoryImpl(ref.watch(lookupRemoteDataSourceProvider));
+});
+
+class MasterDataNotifier extends AsyncNotifier<List<MasterDataItem>> {
   @override
-  List<MasterDataItem> build() => _generateMockData();
-
-  static List<MasterDataItem> _generateMockData() {
-    return [
-      // Machines
-      MasterDataItem(
-        id: 1,
-        category: 'machines',
-        code: 'M1',
-        description: 'Tezgah 1',
-      ),
-      MasterDataItem(
-        id: 2,
-        category: 'machines',
-        code: 'M2',
-        description: 'Tezgah 2',
-      ),
-      MasterDataItem(
-        id: 3,
-        category: 'machines',
-        code: 'PRES',
-        description: 'Pres Makinesi',
-      ),
-      MasterDataItem(
-        id: 4,
-        category: 'machines',
-        code: 'TOR',
-        description: 'Torna',
-      ),
-
-      // Operators
-      MasterDataItem(id: 5, category: 'operators', code: 'Furkan Yılmaz'),
-      MasterDataItem(id: 6, category: 'operators', code: 'Ahmet Demir'),
-      MasterDataItem(id: 7, category: 'operators', code: 'Mehmet Yılmaz'),
-      MasterDataItem(id: 8, category: 'operators', code: 'Ali Veli'),
-
-      // Reject Codes
-      MasterDataItem(
-        id: 9,
-        category: 'reject-codes',
-        code: 'ÇATLAK',
-        description: 'Çatlak var',
-      ),
-      MasterDataItem(
-        id: 10,
-        category: 'reject-codes',
-        code: 'PÜRÜZ',
-        description: 'Yüzey pürüzlü',
-      ),
-      MasterDataItem(
-        id: 11,
-        category: 'reject-codes',
-        code: 'ÖLÇÜ',
-        description: 'Ölçü hatası',
-      ),
-      MasterDataItem(
-        id: 12,
-        category: 'reject-codes',
-        code: 'DELİK',
-        description: 'Delik problemi',
-      ),
-
-      // Zones
-      MasterDataItem(
-        id: 13,
-        category: 'zones',
-        code: 'A',
-        description: 'A Bölgesi',
-      ),
-      MasterDataItem(
-        id: 14,
-        category: 'zones',
-        code: 'B',
-        description: 'B Bölgesi',
-      ),
-      MasterDataItem(
-        id: 15,
-        category: 'zones',
-        code: 'C',
-        description: 'C Bölgesi',
-      ),
-      MasterDataItem(
-        id: 16,
-        category: 'zones',
-        code: 'D',
-        description: 'D Bölgesi',
-      ),
-
-      // Product Codes (NEW)
-      MasterDataItem(
-        id: 20,
-        category: 'product-codes',
-        code: 'P001',
-        description: 'Fren Diski - Ağır Vasıta',
-        productType: 'Fren Diski',
-      ),
-      MasterDataItem(
-        id: 21,
-        category: 'product-codes',
-        code: 'P002',
-        description: 'Fren Kampanası - Otobüs',
-        productType: 'Fren Kampanası',
-      ),
-      MasterDataItem(
-        id: 22,
-        category: 'product-codes',
-        code: 'P003',
-        description: 'Fren Balatası - Kamyon',
-        productType: 'Fren Balatası',
-      ),
-
-      // Operation Names (NEW)
-      MasterDataItem(
-        id: 23,
-        category: 'operation-names',
-        code: 'TORNALAMA',
-        description: 'Torna operasyonu',
-      ),
-      MasterDataItem(
-        id: 24,
-        category: 'operation-names',
-        code: 'FREZELEME',
-        description: 'Freze operasyonu',
-      ),
-      MasterDataItem(
-        id: 25,
-        category: 'operation-names',
-        code: 'DELME',
-        description: 'Delme operasyonu',
-      ),
-      MasterDataItem(
-        id: 26,
-        category: 'operation-names',
-        code: 'TAŞLAMA',
-        description: 'Taşlama operasyonu',
-      ),
-
-      // Rework Operations (NEW)
-      MasterDataItem(
-        id: 27,
-        category: 'rework-operations',
-        code: 'YÜZEY DÜZELTİM',
-        description: 'Yüzey düzeltme işlemi',
-      ),
-      MasterDataItem(
-        id: 28,
-        category: 'rework-operations',
-        code: 'YENİDEN İŞLEME',
-        description: 'Tam yeniden işleme',
-      ),
-      MasterDataItem(
-        id: 29,
-        category: 'rework-operations',
-        code: 'KAYNAK TAMİRİ',
-        description: 'Kaynak ile tamir',
-      ),
-      MasterDataItem(
-        id: 30,
-        category: 'rework-operations',
-        code: 'BOYUT AYARI',
-        description: 'Boyut ayarlama işlemi',
-      ),
-    ];
+  Future<List<MasterDataItem>> build() async {
+    final category = ref.watch(selectedCategoryProvider);
+    return _fetchData(category);
   }
 
-  List<MasterDataItem> getByCategory(String category) {
-    return state.where((item) => item.category == category).toList();
+  Future<List<MasterDataItem>> _fetchData(String category) async {
+    final repository = ref.read(lookupRepositoryProvider);
+    try {
+      final rawData = await repository.getAll(category);
+      return rawData.map((json) => _mapJsonToMasterDataItem(category, json)).toList();
+    } catch (e) {
+      throw Exception('Veri yüklenemedi: $e');
+    }
   }
 
-  void addItem({
-    required String category,
-    required String code,
-    String? description,
-    String? productType,
-  }) {
-    final nextId = state.isEmpty
-        ? 1
-        : state.map((i) => i.id).reduce((a, b) => a > b ? a : b) + 1;
-    final newItem = MasterDataItem(
-      id: nextId,
+  // Expose this as a public method so other providers can use it
+  Future<List<MasterDataItem>> fetchCategory(String category) async {
+    return _fetchData(category);
+  }
+
+  MasterDataItem _mapJsonToMasterDataItem(String category, Map<String, dynamic> json) {
+    int id = json['id'] as int? ?? 0;
+    String code = '';
+    String? description;
+    String? productType;
+    DateTime? createdAt;
+    DateTime? updatedAt;
+    String? createdByName;
+    String? updatedByName;
+
+    DateTime? dogumTarihi;
+    String? yakinTelefonNo;
+    String? yakinlikDerecesi;
+
+    final String? cDate = json['createdAt']?.toString() ?? json['createdDate']?.toString();
+    if (cDate != null) createdAt = DateTime.tryParse(cDate);
+
+    final String? uDate = json['updatedAt']?.toString() ?? json['updatedDate']?.toString();
+    if (uDate != null) updatedAt = DateTime.tryParse(uDate);
+
+    createdByName = json['createdByName']?.toString() ?? json['createdBy']?.toString();
+    updatedByName = json['updatedByName']?.toString() ?? json['updatedBy']?.toString();
+
+    switch (category) {
+      case 'operasyonlar':
+        code = json['operasyonKodu']?.toString() ?? '';
+        description = json['operasyonAdi']?.toString();
+        break;
+      case 'operatorler':
+        code = json['adSoyad']?.toString() ?? '';
+        description = json['sicilNo']?.toString();
+        break;
+      case 'bolgeler':
+        code = json['bolgeKodu']?.toString() ?? '';
+        description = json['bolgeAdi']?.toString();
+        break;
+      case 'ret-kodlari':
+        code = json['kod']?.toString() ?? '';
+        description = json['aciklama']?.toString();
+        break;
+      case 'tezgahlar':
+        code = json['tezgahNo']?.toString() ?? '';
+        description = json['tezgahTuru']?.toString();
+        break;
+      case 'urunler':
+      case 'ham-urunler':
+        code = json['urunKodu']?.toString() ?? '';
+        description = json['urunAdi']?.toString();
+        productType = json['urunTuru']?.toString();
+        break;
+      case 'personeller':
+        code = json['adSoyad']?.toString() ?? '';
+        description = json['telefonNo']?.toString();
+        if (json['dogumTarihi'] != null) {
+          dogumTarihi = DateTime.tryParse(json['dogumTarihi'].toString());
+        }
+        yakinTelefonNo = json['yakinTelefonNo']?.toString();
+        yakinlikDerecesi = json['yakinlikDerecesi']?.toString();
+        break;
+      default:
+        code = json['code']?.toString() ?? 'Bilinmiyor';
+        description = json['description']?.toString();
+    }
+
+    return MasterDataItem(
+      id: id,
       category: category,
       code: code,
       description: description,
       productType: productType,
+      createdAt: createdAt,
+      updatedAt: updatedAt,
+      createdByName: createdByName,
+      updatedByName: updatedByName,
+      dogumTarihi: dogumTarihi,
+      yakinTelefonNo: yakinTelefonNo,
+      yakinlikDerecesi: yakinlikDerecesi,
     );
-    state = [...state, newItem];
   }
 
-  void updateItem(
+  Future<void> addItem({
+    required String category,
+    required Map<String, dynamic> payload,
+  }) async {
+    final repository = ref.read(lookupRepositoryProvider);
+    state = const AsyncValue.loading();
+    try {
+      await repository.create(category, payload);
+      ref.invalidateSelf();
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack);
+    }
+  }
+
+  Future<void> updateItem(
     int id, {
-    String? code,
-    String? description,
-    String? productType,
-    bool? isActive,
-  }) {
-    state = state.map((item) {
-      if (item.id == id) {
-        return item.copyWith(
-          code: code,
-          description: description,
-          productType: productType,
-          isActive: isActive,
-        );
-      }
-      return item;
-    }).toList();
+    required String category,
+    required Map<String, dynamic> payload,
+  }) async {
+    final repository = ref.read(lookupRepositoryProvider);
+    state = const AsyncValue.loading();
+    try {
+      await repository.update(category, id, payload);
+      ref.invalidateSelf();
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack);
+    }
   }
 
-  void deleteItem(int id) {
-    state = state.where((item) => item.id != id).toList();
-  }
-
-  void toggleActive(int id) {
-    state = state.map((item) {
-      if (item.id == id) {
-        return item.copyWith(isActive: !item.isActive);
-      }
-      return item;
-    }).toList();
+  Future<void> deleteItem(int id, String category) async {
+    final repository = ref.read(lookupRepositoryProvider);
+    state = const AsyncValue.loading();
+    try {
+      await repository.delete(category, id);
+      ref.invalidateSelf();
+    } catch (e, stack) {
+      state = AsyncValue.error(e, stack);
+    }
   }
 }
 
 // Provider
 final masterDataProvider =
-    NotifierProvider<MasterDataNotifier, List<MasterDataItem>>(() {
+    AsyncNotifierProvider<MasterDataNotifier, List<MasterDataItem>>(() {
       return MasterDataNotifier();
     });
 
-// Selected category provider (using NotifierProvider instead of StateProvider)
+// Selected category provider
 class SelectedCategoryNotifier extends Notifier<String> {
   @override
-  String build() => 'machines';
+  String build() => 'operasyonlar';
 
   void setCategory(String category) {
     state = category;
@@ -247,20 +177,50 @@ final selectedCategoryProvider =
       return SelectedCategoryNotifier();
     });
 
-// Filtered items by selected category
+// Filters are calculated within the UI now as the provider returns the list for the current category directly
 final filteredMasterDataProvider = Provider<List<MasterDataItem>>((ref) {
-  final category = ref.watch(selectedCategoryProvider);
-  final allData = ref.watch(masterDataProvider);
-  return allData.where((item) => item.category == category).toList();
+  return ref.watch(masterDataProvider).value ?? [];
 });
 
-// Categories (UPDATED: removed foundries and locations, added product-codes, operation-names, rework-operations)
+// Categories map directly to API endpoints
 const masterDataCategories = {
-  'machines': {'label': 'Tezgahlar', 'icon': 'settings'},
-  'operators': {'label': 'Operatörler', 'icon': 'user'},
-  'reject-codes': {'label': 'Ret Kodları', 'icon': 'xCircle'},
-  'zones': {'label': 'Bölgeler', 'icon': 'mapPin'},
-  'product-codes': {'label': 'Ürün Kodları', 'icon': 'box'},
-  'operation-names': {'label': 'Operasyon Adları', 'icon': 'tool'},
-  'rework-operations': {'label': 'Rework İşlemleri', 'icon': 'rotateC cw'},
+  'operasyonlar': {'label': 'Operasyonlar', 'icon': 'tool'},
+  'operatorler': {'label': 'Operatörler', 'icon': 'user'},
+  'personeller': {'label': 'Kalite Personelleri', 'icon': 'users'},
+  'bolgeler': {'label': 'Bölgeler', 'icon': 'mapPin'},
+  'ret-kodlari': {'label': 'Ret Kodları', 'icon': 'xCircle'},
+  'tezgahlar': {'label': 'Tezgahlar', 'icon': 'settings'},
+  'urunler': {'label': 'Ürünler', 'icon': 'box'},
+  'ham-urunler': {'label': 'Ham Ürünler', 'icon': 'package'},
 };
+
+// Standalone provider for fetching personnel, useful for dropdowns in other screens
+final personnelListProvider = FutureProvider<List<MasterDataItem>>((ref) async {
+  final repository = ref.watch(lookupRepositoryProvider);
+  
+  final rawData = await repository.getAll('personeller');
+  
+  return rawData.map((json) {
+    int id = json['id'] as int? ?? 0;
+    String code = json['adSoyad']?.toString() ?? '';
+    return MasterDataItem(
+      id: id,
+      category: 'personeller',
+      code: code,
+      description: json['telefonNo']?.toString(),
+    );
+  }).toList();
+});
+
+final rejectCodesProvider = FutureProvider<List<MasterDataItem>>((ref) async {
+  final repository = ref.watch(lookupRepositoryProvider);
+  final rawData = await repository.getAll('ret-kodlari');
+  return rawData.map((json) {
+    return MasterDataItem(
+      id: json['id'] as int? ?? 0,
+      category: 'ret-kodlari',
+      code: json['kod']?.toString() ?? '',
+      description: json['aciklama']?.toString(),
+    );
+  }).toList();
+});

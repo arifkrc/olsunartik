@@ -1,18 +1,22 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../../core/constants/app_colors.dart';
+import '../../../providers/audit_providers.dart';
+import '../../../providers/master_data_provider.dart';
+import '../../../../forms/presentation/providers/quality_approval_providers.dart';
 
-class EditQualityApprovalDialog extends StatefulWidget {
+class EditQualityApprovalDialog extends ConsumerStatefulWidget {
   final Map<String, dynamic> data;
 
   const EditQualityApprovalDialog({super.key, required this.data});
 
   @override
-  State<EditQualityApprovalDialog> createState() =>
+  ConsumerState<EditQualityApprovalDialog> createState() =>
       _EditQualityApprovalDialogState();
 }
 
-class _EditQualityApprovalDialogState extends State<EditQualityApprovalDialog> {
+class _EditQualityApprovalDialogState extends ConsumerState<EditQualityApprovalDialog> {
   late TextEditingController _productCodeController;
   late TextEditingController _productNameController;
   late TextEditingController _productTypeController;
@@ -20,36 +24,29 @@ class _EditQualityApprovalDialogState extends State<EditQualityApprovalDialog> {
   late TextEditingController _descriptionController;
 
   late String _complianceStatus; // 'Uygun' or 'RET'
-  String? _rejectCode;
-
-  final List<String> _rejectCodes = [
-    'Hata 001 - Boyut Hatası',
-    'Hata 002 - Yüzey Hatası',
-    'Hata 003 - Montaj Hatası',
-    'Hata 004 - Malzeme Hatası',
-    'Hata 005 - İşlem Hatası',
-  ];
+  int? _selectedRejectCodeId;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _productCodeController = TextEditingController(
-      text: widget.data['productCode'] ?? '',
+      text: widget.data['urunKodu'] ?? widget.data['productCode'] ?? '',
     );
     _productNameController = TextEditingController(
-      text: widget.data['productName'] ?? '',
+      text: widget.data['urunAdi'] ?? widget.data['productName'] ?? '',
     );
     _productTypeController = TextEditingController(
-      text: widget.data['productType'] ?? '',
+      text: widget.data['urunTuru'] ?? widget.data['productType'] ?? '',
     );
     _amountController = TextEditingController(
-      text: widget.data['amount']?.toString() ?? '1',
+      text: (widget.data['adet'] ?? widget.data['amount'] ?? 1).toString(),
     );
     _descriptionController = TextEditingController(
-      text: widget.data['description'] ?? '',
+      text: widget.data['aciklama'] ?? widget.data['description'] ?? '',
     );
-    _complianceStatus = widget.data['status'] ?? 'Uygun';
-    _rejectCode = widget.data['rejectCode'];
+    _complianceStatus = (widget.data['isUygun'] ?? true) ? 'Uygun' : 'RET';
+    _selectedRejectCodeId = widget.data['retKoduId'];
   }
 
   @override
@@ -71,6 +68,8 @@ class _EditQualityApprovalDialogState extends State<EditQualityApprovalDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final rejectCodesAsync = ref.watch(rejectCodesProvider);
+
     return Dialog(
       backgroundColor: Colors.transparent,
       child: Container(
@@ -82,7 +81,7 @@ class _EditQualityApprovalDialogState extends State<EditQualityApprovalDialog> {
           border: Border.all(color: AppColors.glassBorder),
         ),
         child: Column(
-          mainAxisSize: MainAxisSize.min,
+          mainAxisSize: MapAxisSize.min,
           children: [
             // Header
             Container(
@@ -145,66 +144,79 @@ class _EditQualityApprovalDialogState extends State<EditQualityApprovalDialog> {
 
             // Content
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Product Code
-                    _buildTextField(
-                      label: 'Ürün Kodu',
-                      controller: _productCodeController,
-                      icon: LucideIcons.box,
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Product Name & Type (Read-only)
-                    Row(
+              child: Stack(
+                children: [
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Expanded(
-                          child: _buildTextField(
-                            label: 'Ürün Adı',
-                            controller: _productNameController,
-                            icon: LucideIcons.tag,
-                            enabled: false,
-                          ),
+                        // Product Code
+                        _buildTextField(
+                          label: 'Ürün Kodu',
+                          controller: _productCodeController,
+                          icon: LucideIcons.box,
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildTextField(
-                            label: 'Ürün Türü',
-                            controller: _productTypeController,
-                            icon: LucideIcons.package,
-                            enabled: false,
+                        const SizedBox(height: 12),
+
+                        // Product Name & Type (Read-only)
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildTextField(
+                                label: 'Ürün Adı',
+                                controller: _productNameController,
+                                icon: LucideIcons.tag,
+                                enabled: false,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildTextField(
+                                label: 'Ürün Türü',
+                                controller: _productTypeController,
+                                icon: LucideIcons.package,
+                                enabled: false,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Amount with +/- buttons
+                        _buildAmountField(),
+                        const SizedBox(height: 12),
+
+                        // Compliance Status (Uygun/RET)
+                        _buildComplianceRadio(),
+                        const SizedBox(height: 12),
+
+                        // Reject Code (conditional)
+                        if (_complianceStatus == 'RET') ...[
+                          rejectCodesAsync.when(
+                            data: (codes) => _buildRejectCodeDropdown(codes),
+                            loading: () => const Center(child: CircularProgressIndicator()),
+                            error: (e, s) => Text('Hata: $e', style: const TextStyle(color: Colors.red)),
                           ),
+                          const SizedBox(height: 12),
+                        ],
+
+                        // Description
+                        _buildTextField(
+                          label: 'Açıklama',
+                          controller: _descriptionController,
+                          icon: LucideIcons.fileText,
+                          maxLines: 3,
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-
-                    // Amount with +/- buttons
-                    _buildAmountField(),
-                    const SizedBox(height: 12),
-
-                    // Compliance Status (Uygun/RET)
-                    _buildComplianceRadio(),
-                    const SizedBox(height: 12),
-
-                    // Reject Code (conditional)
-                    if (_complianceStatus == 'RET') ...[
-                      _buildRejectCodeDropdown(),
-                      const SizedBox(height: 12),
-                    ],
-
-                    // Description
-                    _buildTextField(
-                      label: 'Açıklama',
-                      controller: _descriptionController,
-                      icon: LucideIcons.fileText,
-                      maxLines: 3,
+                  ),
+                  if (_isLoading)
+                    Container(
+                      color: Colors.black26,
+                      child: const Center(child: CircularProgressIndicator()),
                     ),
-                  ],
-                ),
+                ],
               ),
             ),
 
@@ -222,7 +234,7 @@ class _EditQualityApprovalDialogState extends State<EditQualityApprovalDialog> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: _isLoading ? null : () => Navigator.pop(context),
                       style: OutlinedButton.styleFrom(
                         side: BorderSide(color: AppColors.border),
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -242,8 +254,10 @@ class _EditQualityApprovalDialogState extends State<EditQualityApprovalDialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: _saveChanges,
-                      icon: const Icon(LucideIcons.save, size: 16),
+                      onPressed: _isLoading ? null : _saveChanges,
+                      icon: _isLoading 
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Icon(LucideIcons.save, size: 16),
                       label: const Text(
                         'Kaydet',
                         style: TextStyle(fontWeight: FontWeight.bold),
@@ -391,7 +405,7 @@ class _EditQualityApprovalDialogState extends State<EditQualityApprovalDialog> {
               child: InkWell(
                 onTap: () => setState(() {
                   _complianceStatus = 'Uygun';
-                  _rejectCode = null;
+                  _selectedRejectCodeId = null;
                 }),
                 borderRadius: BorderRadius.circular(8),
                 child: Container(
@@ -426,7 +440,7 @@ class _EditQualityApprovalDialogState extends State<EditQualityApprovalDialog> {
                         style: TextStyle(
                           color: _complianceStatus == 'Uygun'
                               ? Colors.white
-                              : AppColors.textSecondary,
+                              ? AppColors.textSecondary,
                           fontWeight: FontWeight.bold,
                         ),
                       ),
@@ -487,7 +501,7 @@ class _EditQualityApprovalDialogState extends State<EditQualityApprovalDialog> {
     );
   }
 
-  Widget _buildRejectCodeDropdown() {
+  Widget _buildRejectCodeDropdown(List<MasterDataItem> codes) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -508,8 +522,8 @@ class _EditQualityApprovalDialogState extends State<EditQualityApprovalDialog> {
             border: Border.all(color: AppColors.error),
           ),
           child: DropdownButtonHideUnderline(
-            child: DropdownButton<String>(
-              value: _rejectCode,
+            child: DropdownButton<int>(
+              value: _selectedRejectCodeId,
               hint: Text(
                 'Ret kodu seçin',
                 style: TextStyle(color: AppColors.textSecondary),
@@ -522,13 +536,16 @@ class _EditQualityApprovalDialogState extends State<EditQualityApprovalDialog> {
                 size: 18,
               ),
               style: TextStyle(color: AppColors.textMain, fontSize: 13),
-              items: _rejectCodes
+              items: codes
                   .map(
-                    (code) => DropdownMenuItem(value: code, child: Text(code)),
+                    (item) => DropdownMenuItem(
+                      value: item.id, 
+                      child: Text('${item.code} - ${item.description ?? ''}')
+                    ),
                   )
                   .toList(),
               onChanged: (value) {
-                setState(() => _rejectCode = value);
+                setState(() => _selectedRejectCodeId = value);
               },
             ),
           ),
@@ -537,8 +554,7 @@ class _EditQualityApprovalDialogState extends State<EditQualityApprovalDialog> {
     );
   }
 
-  void _saveChanges() {
-    // Validate
+  Future<void> _saveChanges() async {
     if (_productCodeController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -549,7 +565,7 @@ class _EditQualityApprovalDialogState extends State<EditQualityApprovalDialog> {
       return;
     }
 
-    if (_complianceStatus == 'RET' && _rejectCode == null) {
+    if (_complianceStatus == 'RET' && _selectedRejectCodeId == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('RET durumunda ret kodu seçilmelidir'),
@@ -559,13 +575,45 @@ class _EditQualityApprovalDialogState extends State<EditQualityApprovalDialog> {
       return;
     }
 
-    // In a real app, save to database/API here
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Kayıt güncellendi: ${widget.data['id']}'),
-        backgroundColor: AppColors.success,
-      ),
-    );
+    setState(() => _isLoading = true);
+
+    try {
+      final id = widget.data['id'] as int;
+      final payload = {
+        "id": id,
+        "urunId": widget.data['urunId'],
+        "urunKodu": _productCodeController.text,
+        "adet": int.tryParse(_amountController.text) ?? 1,
+        "isUygun": _complianceStatus == 'Uygun',
+        "retKoduId": _selectedRejectCodeId,
+        "aciklama": _descriptionController.text,
+        "islemTarihi": DateTime.now().toIso8601String(),
+      };
+
+      await ref.read(qualityApprovalRepositoryProvider).update(id, payload);
+      
+      ref.invalidate(auditStateProvider);
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Kalite onay kaydı başarıyla güncellendi (ID: $id)'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Hata: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 }

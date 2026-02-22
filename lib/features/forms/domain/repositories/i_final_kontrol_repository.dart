@@ -5,6 +5,6 @@ abstract class IFinalKontrolRepository {
   Future<List<FinalKontrolForm>> getAll();
   Future<List<FinalKontrolForm>> getForms({DateTime? date});
   Future<FinalKontrolBulkResponseDto> createForm(FinalKontrolRequestDto requestDto);
-  Future<void> update(FinalKontrolForm form);
+  Future<void> update(int id, Map<String, dynamic> data);
   Future<void> delete(int id);
 }

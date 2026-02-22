@@ -37,20 +37,8 @@ class ReworkRepositoryImpl implements IReworkRepository {
   }
 
   @override
-  Future<void> update(ReworkForm form) async {
-    final dto = ReworkFormDto(
-      id: form.id,
-      urunId: form.urunId,
-      urunKodu: form.urunKodu,
-      urunAdi: form.urunAdi,
-      adet: form.adet,
-      retKoduId: form.retKoduId,
-      sarjNo: form.sarjNo,
-      sonuc: form.sonuc,
-      aciklama: form.aciklama,
-      kayitTarihi: form.kayitTarihi,
-    );
-    await _remoteDataSource.update(form.id!, dto.toJson());
+  Future<void> update(int id, Map<String, dynamic> data) async {
+    await _remoteDataSource.update(id, data);
   }
 
   @override

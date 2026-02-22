@@ -44,7 +44,7 @@ class FireKayitRepositoryImpl implements IFireKayitRepository {
   }
 
   @override
-  Future<void> updateForm(int id, FireKayitRequestDto data) async {
+  Future<void> updateForm(int id, Map<String, dynamic> data) async {
     await _remoteDataSource.updateForm(id, data);
   }
 

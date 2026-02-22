@@ -9,7 +9,7 @@ abstract class IFireKayitRepository {
   });
   Future<FireKayitFormu> getForm(int id);
   Future<int> createForm(FireKayitRequestDto data);
-  Future<void> updateForm(int id, FireKayitRequestDto data);
+  Future<void> updateForm(int id, Map<String, dynamic> data);
   Future<void> deleteForm(int id);
   Future<String> uploadPhoto(int id, File file);
 }

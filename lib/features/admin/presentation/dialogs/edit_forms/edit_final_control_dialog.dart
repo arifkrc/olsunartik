@@ -1,17 +1,20 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../../core/constants/app_colors.dart';
+import '../../../providers/audit_providers.dart';
+import '../../../../forms/presentation/providers/final_kontrol_providers.dart';
 
-class EditFinalControlDialog extends StatefulWidget {
+class EditFinalControlDialog extends ConsumerStatefulWidget {
   final Map<String, dynamic> data;
 
   const EditFinalControlDialog({super.key, required this.data});
 
   @override
-  State<EditFinalControlDialog> createState() => _EditFinalControlDialogState();
+  ConsumerState<EditFinalControlDialog> createState() => _EditFinalControlDialogState();
 }
 
-class _EditFinalControlDialogState extends State<EditFinalControlDialog> {
+class _EditFinalControlDialogState extends ConsumerState<EditFinalControlDialog> {
   late TextEditingController _productCodeController;
   late TextEditingController _customerNameController;
   late TextEditingController _productNameController;
@@ -21,36 +24,37 @@ class _EditFinalControlDialogState extends State<EditFinalControlDialog> {
   late TextEditingController _hurdaController;
   late TextEditingController _reworkController;
   late TextEditingController _descriptionController;
+  bool _isLoading = false;
 
   @override
   void initState() {
     super.initState();
     _productCodeController = TextEditingController(
-      text: widget.data['productCode'] ?? '',
+      text: widget.data['urunKodu'] ?? widget.data['productCode'] ?? '',
     );
     _customerNameController = TextEditingController(
-      text: widget.data['customerName'] ?? '',
+      text: widget.data['musteriAdi'] ?? widget.data['customerName'] ?? '',
     );
     _productNameController = TextEditingController(
-      text: widget.data['productName'] ?? '',
+      text: widget.data['urunAdi'] ?? widget.data['productName'] ?? '',
     );
     _productTypeController = TextEditingController(
-      text: widget.data['productType'] ?? '',
+      text: widget.data['urunTuru'] ?? widget.data['productType'] ?? '',
     );
     _paletNoController = TextEditingController(
-      text: widget.data['paletNo'] ?? '',
+      text: widget.data['izlenebilirlikBarkod'] ?? widget.data['paletNo'] ?? '',
     );
     _paketlenenController = TextEditingController(
-      text: widget.data['paketlenen']?.toString() ?? '0',
+      text: (widget.data['paketAdet'] ?? widget.data['paketlenen'] ?? 0).toString(),
     );
     _hurdaController = TextEditingController(
-      text: widget.data['hurda']?.toString() ?? '0',
+      text: (widget.data['retAdet'] ?? widget.data['hurda'] ?? 0).toString(),
     );
     _reworkController = TextEditingController(
-      text: widget.data['rework']?.toString() ?? '0',
+      text: (widget.data['reworkAdet'] ?? widget.data['rework'] ?? 0).toString(),
     );
     _descriptionController = TextEditingController(
-      text: widget.data['description'] ?? '',
+      text: widget.data['aciklama'] ?? widget.data['description'] ?? '',
     );
   }
 
@@ -144,113 +148,122 @@ class _EditFinalControlDialogState extends State<EditFinalControlDialog> {
 
             // Content
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Product Code & Customer Name
-                    Row(
+              child: Stack(
+                children: [
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Expanded(
-                          child: _buildTextField(
-                            label: 'Ürün Kodu',
-                            controller: _productCodeController,
-                            icon: LucideIcons.box,
+                        // Product Code & Customer Name
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildTextField(
+                                label: 'Ürün Kodu',
+                                controller: _productCodeController,
+                                icon: LucideIcons.box,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildTextField(
+                                label: 'Müşteri Adı',
+                                controller: _customerNameController,
+                                icon: LucideIcons.user,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Product Name & Type (Read-only)
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildTextField(
+                                label: 'Ürün Adı',
+                                controller: _productNameController,
+                                icon: LucideIcons.tag,
+                                enabled: false,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildTextField(
+                                label: 'Ürün Türü',
+                                controller: _productTypeController,
+                                icon: LucideIcons.package,
+                                enabled: false,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Palet No
+                        _buildTextField(
+                          label: 'Palet İzlenebilirlik No',
+                          controller: _paletNoController,
+                          icon: LucideIcons.qrCode,
+                        ),
+                        const SizedBox(height: 16),
+
+                        // Production Counters
+                        Text(
+                          'Üretim Sayaçları',
+                          style: TextStyle(
+                            color: AppColors.textSecondary,
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildTextField(
-                            label: 'Müşteri Adı',
-                            controller: _customerNameController,
-                            icon: LucideIcons.user,
-                          ),
+                        const SizedBox(height: 8),
+
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildCounterField(
+                                label: 'Paketlenen',
+                                controller: _paketlenenController,
+                                color: AppColors.duzceGreen,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildCounterField(
+                                label: 'Hurda',
+                                controller: _hurdaController,
+                                color: AppColors.error,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        _buildCounterField(
+                          label: 'Rework',
+                          controller: _reworkController,
+                          color: AppColors.reworkOrange,
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Description
+                        _buildTextField(
+                          label: 'Açıklama',
+                          controller: _descriptionController,
+                          icon: LucideIcons.fileText,
+                          maxLines: 3,
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-
-                    // Product Name & Type (Read-only)
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildTextField(
-                            label: 'Ürün Adı',
-                            controller: _productNameController,
-                            icon: LucideIcons.tag,
-                            enabled: false,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildTextField(
-                            label: 'Ürün Türü',
-                            controller: _productTypeController,
-                            icon: LucideIcons.package,
-                            enabled: false,
-                          ),
-                        ),
-                      ],
+                  ),
+                  if (_isLoading)
+                    Container(
+                      color: Colors.black26,
+                      child: const Center(child: CircularProgressIndicator()),
                     ),
-                    const SizedBox(height: 12),
-
-                    // Palet No
-                    _buildTextField(
-                      label: 'Palet İzlenebilirlik No',
-                      controller: _paletNoController,
-                      icon: LucideIcons.qrCode,
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Production Counters
-                    Text(
-                      'Üretim Sayaçları',
-                      style: TextStyle(
-                        color: AppColors.textSecondary,
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildCounterField(
-                            label: 'Paketlenen',
-                            controller: _paketlenenController,
-                            color: AppColors.duzceGreen,
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildCounterField(
-                            label: 'Hurda',
-                            controller: _hurdaController,
-                            color: AppColors.error,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    _buildCounterField(
-                      label: 'Rework',
-                      controller: _reworkController,
-                      color: AppColors.reworkOrange,
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Description
-                    _buildTextField(
-                      label: 'Açıklama',
-                      controller: _descriptionController,
-                      icon: LucideIcons.fileText,
-                      maxLines: 3,
-                    ),
-                  ],
-                ),
+                ],
               ),
             ),
 
@@ -268,7 +281,7 @@ class _EditFinalControlDialogState extends State<EditFinalControlDialog> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: _isLoading ? null : () => Navigator.pop(context),
                       style: OutlinedButton.styleFrom(
                         side: BorderSide(color: AppColors.border),
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -288,8 +301,10 @@ class _EditFinalControlDialogState extends State<EditFinalControlDialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: _saveChanges,
-                      icon: const Icon(LucideIcons.save, size: 16),
+                      onPressed: _isLoading ? null : _saveChanges,
+                      icon: _isLoading 
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Icon(LucideIcons.save, size: 16),
                       label: const Text(
                         'Kaydet',
                         style: TextStyle(fontWeight: FontWeight.bold),
@@ -407,7 +422,7 @@ class _EditFinalControlDialogState extends State<EditFinalControlDialog> {
     );
   }
 
-  void _saveChanges() {
+  Future<void> _saveChanges() async {
     if (_productCodeController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -418,12 +433,47 @@ class _EditFinalControlDialogState extends State<EditFinalControlDialog> {
       return;
     }
 
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Final kontrol kaydı güncellendi: ${widget.data['id']}'),
-        backgroundColor: AppColors.success,
-      ),
-    );
+    setState(() => _isLoading = true);
+
+    try {
+      final id = widget.data['id'] as int;
+      final payload = {
+        "id": id,
+        "urunKodu": _productCodeController.text,
+        "islemTarihi": DateTime.now().toIso8601String(),
+        "paketAdet": int.tryParse(_paketlenenController.text) ?? 0,
+        "retAdet": int.tryParse(_hurdaController.text) ?? 0,
+        "reworkAdet": int.tryParse(_reworkController.text) ?? 0,
+        "aciklama": _descriptionController.text,
+        "musteriAdi": _customerNameController.text,
+        "urunAdi": _productNameController.text,
+        "izlenebilirlikBarkod": _paletNoController.text,
+      };
+
+      await ref.read(finalKontrolRepositoryProvider).update(id, payload);
+      
+      ref.invalidate(auditStateProvider);
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Final kontrol kaydı başarıyla güncellendi (ID: $id)'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Hata: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 }

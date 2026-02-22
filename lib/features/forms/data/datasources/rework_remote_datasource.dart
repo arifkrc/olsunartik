@@ -28,7 +28,22 @@ class ReworkRemoteDataSource {
   }
 
   Future<void> update(int id, Map<String, dynamic> data) async {
-    await _dio.put('Rework/$id', data: data);
+    try {
+      final response = await _dio.put('rework/$id', data: data);
+      final respData = response.data;
+      if (respData['success'] == false) {
+        throw Exception(respData['message'] ?? 'Güncelleme hatası');
+      }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 400) {
+        final errorData = e.response?.data;
+        final message = errorData?['message'] ??
+            (errorData?['errors'] as List?)?.first ??
+            'Geçersiz istek';
+        throw Exception(message);
+      }
+      throw Exception(e.message ?? 'Bilinmeyen hata');
+    }
   }
 
   Future<void> delete(int id) async {

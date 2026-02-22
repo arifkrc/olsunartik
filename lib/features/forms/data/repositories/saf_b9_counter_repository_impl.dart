@@ -11,4 +11,14 @@ class SafB9CounterRepositoryImpl implements ISafB9CounterRepository {
   Future<String> create(SAFBRequestDto request) async {
     return await _remoteDataSource.create(request);
   }
+
+  @override
+  Future<void> update(int id, Map<String, dynamic> data) async {
+    await _remoteDataSource.update(id, data);
+  }
+
+  @override
+  Future<void> delete(int id) async {
+    await _remoteDataSource.delete(id);
+  }
 }

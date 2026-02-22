@@ -17,10 +17,12 @@ class UserPermission {
       final s = seviye.toLowerCase();
       if (s.contains('superadmin')) return const UserPermission(0);
       if (s.contains('admin')) return const UserPermission(1);
-      if (s.contains('yonetici') || s.contains('manager'))
+      if (s.contains('yonetici') || s.contains('manager')) {
         return const UserPermission(2);
-      if (s.contains('user') || s.contains('kullanici'))
+      }
+      if (s.contains('user') || s.contains('kullanici')) {
         return const UserPermission(3);
+      }
       if (s.contains('misafir')) return const UserPermission(4);
     }
     return const UserPermission(3); // Default to normal user

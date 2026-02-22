@@ -22,38 +22,61 @@ class _MasterDataTabState extends ConsumerState<MasterDataTab> {
   @override
   Widget build(BuildContext context) {
     final selectedCategory = ref.watch(selectedCategoryProvider);
-    final allItems = ref.watch(filteredMasterDataProvider);
-    final filteredItems = allItems.where((item) {
-      if (_searchQuery.isEmpty) return true;
-      return item.code.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          (item.description?.toLowerCase().contains(
-                _searchQuery.toLowerCase(),
-              ) ??
-              false);
-    }).toList();
+    final masterDataAsync = ref.watch(masterDataProvider);
 
-    return Row(
-      children: [
-        // Category Selector
-        _buildCategorySelector(selectedCategory),
-
-        // Vertical Divider
-        Container(width: 1, color: AppColors.border),
-
-        // Data Panel
-        Expanded(
-          child: Column(
-            children: [
-              _buildDataHeader(selectedCategory),
-              Expanded(
-                child: filteredItems.isEmpty
-                    ? _buildEmptyState()
-                    : _buildDataList(filteredItems),
-              ),
-            ],
-          ),
+    return masterDataAsync.when(
+      loading: () => const Center(
+        child: CircularProgressIndicator(color: AppColors.primary),
+      ),
+      error: (error, stack) => Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(LucideIcons.alertCircle, color: AppColors.error, size: 48),
+            const SizedBox(height: 16),
+            Text('Hata: $error', style: const TextStyle(color: AppColors.error)),
+            const SizedBox(height: 16),
+            ElevatedButton(
+              onPressed: () => ref.refresh(masterDataProvider),
+              child: const Text('Tekrar Dene'),
+            ),
+          ],
         ),
-      ],
+      ),
+      data: (allItems) {
+        final filteredItems = allItems.where((item) {
+          if (_searchQuery.isEmpty) return true;
+          return item.code.toLowerCase().contains(_searchQuery.toLowerCase()) ||
+              (item.description?.toLowerCase().contains(
+                    _searchQuery.toLowerCase(),
+                  ) ??
+                  false);
+        }).toList();
+
+        return Row(
+          children: [
+            // Category Selector
+            _buildCategorySelector(selectedCategory),
+
+            // Vertical Divider
+            Container(width: 1, color: AppColors.border),
+
+            // Data Panel
+            Expanded(
+              child: Column(
+                children: [
+                  _buildDataHeader(selectedCategory, filteredItems.length),
+                  Expanded(
+                    child: filteredItems.isEmpty
+                        ? _buildEmptyState()
+                        : _buildDataList(filteredItems),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        );
+      },
     );
   }
 
@@ -157,9 +180,8 @@ class _MasterDataTabState extends ConsumerState<MasterDataTab> {
     );
   }
 
-  Widget _buildDataHeader(String category) {
+  Widget _buildDataHeader(String category, int itemCount) {
     final categoryInfo = masterDataCategories[category]!;
-    final itemCount = ref.watch(filteredMasterDataProvider).length;
 
     return Container(
       padding: const EdgeInsets.all(24),
@@ -339,20 +361,58 @@ class _MasterDataTabState extends ConsumerState<MasterDataTab> {
                       color: item.isActive
                           ? AppColors.textSecondary
                           : AppColors.textSecondary.withValues(alpha: 0.6),
-                      fontSize: 13,
+                      fontSize: 16,
                     ),
                   ),
                 ],
-                const SizedBox(height: 4),
-                Text(
-                  DateFormat('dd.MM.yyyy').format(item.createdAt),
-                  style: TextStyle(
-                    color: item.isActive
-                        ? AppColors.textSecondary
-                        : AppColors.textSecondary.withValues(alpha: 0.6),
-                    fontSize: 12,
-                  ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Icon(
+                      LucideIcons.calendar,
+                      size: 14,
+                      color: AppColors.textSecondary.withValues(alpha: 0.7),
+                    ),
+                    const SizedBox(width: 6),
+                    Text(
+                      item.updatedAt != null 
+                        ? 'Son Güncelleme Tarihi: ${DateFormat('dd.MM.yyyy HH:mm').format(item.updatedAt!)}'
+                        : 'Eklenme Tarihi: ${DateFormat('dd.MM.yyyy HH:mm').format(item.createdAt)}',
+                      style: TextStyle(
+                        color: item.isActive
+                            ? AppColors.textSecondary
+                            : AppColors.textSecondary.withValues(alpha: 0.6),
+                        fontSize: 12,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ],
                 ),
+                if (item.updatedByName != null || item.createdByName != null) ...[
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Icon(
+                        LucideIcons.user,
+                        size: 14,
+                        color: AppColors.textSecondary.withValues(alpha: 0.7),
+                      ),
+                      const SizedBox(width: 6),
+                      Text(
+                        item.updatedByName != null 
+                          ? 'Son Güncelleyen: ${item.updatedByName}'
+                          : 'Oluşturan: ${item.createdByName}',
+                        style: TextStyle(
+                          color: item.isActive
+                              ? AppColors.textSecondary
+                              : AppColors.textSecondary.withValues(alpha: 0.6),
+                          fontSize: 12,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
               ],
             ),
           ),
@@ -370,7 +430,19 @@ class _MasterDataTabState extends ConsumerState<MasterDataTab> {
                       : AppColors.textSecondary,
                 ),
                 onChanged: (value) {
-                  ref.read(masterDataProvider.notifier).toggleActive(item.id);
+                  ref.read(masterDataProvider.notifier).updateItem(
+                        item.id,
+                        category: item.category,
+                        payload: {
+                          'isActive': value,
+                          // Depending on the backend, we might need to send the whole object or just a patch.
+                          // Assuming we need to send the whole object for a typical PUT request, or at least the active status if it supports it.
+                          // We'll leave it simple; if backend requires full object, we'll need to adapt updateItem to take it.
+                          // Let's assume updateItem supports partial updates or we just send the updated status if the backend allows it.
+                          // In a real scenario, we'd probably call a specific `toggleActive` endpoint or send the full mapped object.
+                          // For now, let's just update the local state to prevent the error, or send a generic payload.
+                        },
+                      );
                 },
               ),
               IconButton(

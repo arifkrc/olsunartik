@@ -178,7 +178,7 @@ class _DeleteUserDialogState extends ConsumerState<DeleteUserDialog> {
     final repository = ref.read(userManagementRepositoryProvider);
     final result = await repository.deleteUser(widget.user.id);
 
-    if (!mounted) return;
+    if (!context.mounted) return;
 
     setState(() => _isLoading = false);
 

@@ -64,7 +64,7 @@ class _ProductInfoCardState extends ConsumerState<ProductInfoCard> {
   @override
   Widget build(BuildContext context) {
     _warmupIfNeeded(); // Ürün listesini sessizce cache'le
-    final productSearchState = ref.watch(productSearchProvider);
+    final AsyncValue<List<Product>> productSearchState = ref.watch(productSearchProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -121,10 +121,7 @@ class _ProductInfoCardState extends ConsumerState<ProductInfoCard> {
                       color: AppColors.textSecondary,
                       size: 18,
                     ),
-                    suffixIcon: productSearchState.maybeWhen(
-                          loading: () => true,
-                          orElse: () => false,
-                        )
+                    suffixIcon: productSearchState.isLoading
                         ? const Padding(
                             padding: EdgeInsets.all(12.0),
                             child: SizedBox(

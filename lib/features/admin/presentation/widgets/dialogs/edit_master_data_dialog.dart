@@ -20,6 +20,9 @@ class _EditMasterDataDialogState extends ConsumerState<EditMasterDataDialog> {
   late final TextEditingController _codeController;
   late final TextEditingController _descriptionController;
   late final TextEditingController _productTypeController;
+  late final TextEditingController _yakinTelefonController;
+  late final TextEditingController _yakinlikDerecesiController;
+  DateTime? _dogumTarihi;
 
   @override
   void initState() {
@@ -31,6 +34,13 @@ class _EditMasterDataDialogState extends ConsumerState<EditMasterDataDialog> {
     _productTypeController = TextEditingController(
       text: widget.item.productType ?? '',
     );
+    _yakinTelefonController = TextEditingController(
+      text: widget.item.yakinTelefonNo ?? '',
+    );
+    _yakinlikDerecesiController = TextEditingController(
+      text: widget.item.yakinlikDerecesi ?? '',
+    );
+    _dogumTarihi = widget.item.dogumTarihi;
   }
 
   @override
@@ -38,7 +48,38 @@ class _EditMasterDataDialogState extends ConsumerState<EditMasterDataDialog> {
     _codeController.dispose();
     _descriptionController.dispose();
     _productTypeController.dispose();
+    _yakinTelefonController.dispose();
+    _yakinlikDerecesiController.dispose();
     super.dispose();
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _dogumTarihi ?? DateTime.now().subtract(const Duration(days: 365 * 20)),
+      firstDate: DateTime(1950),
+      lastDate: DateTime.now(),
+      builder: (context, child) {
+        return Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.dark(
+              primary: AppColors.primary,
+              onPrimary: Colors.white,
+              surface: AppColors.surface,
+              onSurface: AppColors.textMain,
+            ),
+          ),
+          child: child!,
+        );
+      },
+    );
+    if (picked != null && picked != _dogumTarihi) {
+      if (mounted) {
+        setState(() {
+          _dogumTarihi = picked;
+        });
+      }
+    }
   }
 
   @override
@@ -57,7 +98,8 @@ class _EditMasterDataDialogState extends ConsumerState<EditMasterDataDialog> {
         ),
         child: Form(
           key: _formKey,
-          child: Column(
+          child: SingleChildScrollView(
+            child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
@@ -127,11 +169,12 @@ class _EditMasterDataDialogState extends ConsumerState<EditMasterDataDialog> {
               ),
               const SizedBox(height: 16),
 
-              // Product Type (only for product-codes)
-              if (widget.item.category == 'product-codes') ...[
+              // Product Type (only for urunler and ham-urunler)
+              if (widget.item.category == 'urunler' || widget.item.category == 'ham-urunler') ...[
                 TextFormField(
                   controller: _productTypeController,
                   style: const TextStyle(color: AppColors.textMain),
+                  textCapitalization: TextCapitalization.words,
                   decoration: InputDecoration(
                     labelText: 'Ürün Türü',
                     labelStyle: const TextStyle(color: AppColors.textSecondary),
@@ -157,11 +200,11 @@ class _EditMasterDataDialogState extends ConsumerState<EditMasterDataDialog> {
               TextFormField(
                 controller: _descriptionController,
                 style: const TextStyle(color: AppColors.textMain),
-                maxLines: 3,
+                maxLines: widget.item.category == 'personeller' || widget.item.category == 'operatorler' || widget.item.category == 'tezgahlar' || widget.item.category == 'operasyonlar' || widget.item.category == 'bolgeler' ? 1 : 3,
                 decoration: InputDecoration(
-                  labelText: 'Açıklama (Opsiyonel)',
+                  labelText: _getDescriptionLabel(),
                   labelStyle: const TextStyle(color: AppColors.textSecondary),
-                  prefixIcon: const Icon(LucideIcons.fileText, size: 18),
+                  prefixIcon: Icon(widget.item.category == 'personeller' ? LucideIcons.phone : LucideIcons.fileText, size: 18),
                   filled: true,
                   fillColor: AppColors.background,
                   border: OutlineInputBorder(
@@ -170,7 +213,78 @@ class _EditMasterDataDialogState extends ConsumerState<EditMasterDataDialog> {
                   ),
                   alignLabelWithHint: true,
                 ),
+                validator: (value) {
+                  if ((widget.item.category == 'urunler' || widget.item.category == 'ham-urunler') && (value == null || value.isEmpty)) {
+                     return 'Ürün adı gerekli';
+                  }
+                  return null;
+                },
               ),
+              // Personeller extra fields
+              if (widget.item.category == 'personeller') ...[
+                // Doğum Tarihi
+                InkWell(
+                  onTap: () => _selectDate(context),
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+                    decoration: BoxDecoration(
+                      color: AppColors.background,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: AppColors.border),
+                    ),
+                    child: Row(
+                      children: [
+                        const Icon(LucideIcons.calendar, size: 18, color: AppColors.textSecondary),
+                        const SizedBox(width: 12),
+                        Text(
+                          _dogumTarihi == null ? 'Doğum Tarihi Seçiniz' : '${_dogumTarihi!.year}-${_dogumTarihi!.month.toString().padLeft(2, '0')}-${_dogumTarihi!.day.toString().padLeft(2, '0')}',
+                          style: TextStyle(
+                            color: _dogumTarihi == null ? AppColors.textSecondary : AppColors.textMain,
+                            fontSize: 16,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Yakın Telefon No
+                TextFormField(
+                  controller: _yakinTelefonController,
+                  style: const TextStyle(color: AppColors.textMain),
+                  keyboardType: TextInputType.phone,
+                  decoration: InputDecoration(
+                    labelText: 'Yakın Telefon No',
+                    labelStyle: const TextStyle(color: AppColors.textSecondary),
+                    prefixIcon: const Icon(LucideIcons.phoneCall, size: 18),
+                    filled: true,
+                    fillColor: AppColors.background,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.border),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Yakınlık Derecesi
+                TextFormField(
+                  controller: _yakinlikDerecesiController,
+                  style: const TextStyle(color: AppColors.textMain),
+                  decoration: InputDecoration(
+                    labelText: 'Yakınlık Derecesi',
+                    labelStyle: const TextStyle(color: AppColors.textSecondary),
+                    prefixIcon: const Icon(LucideIcons.users, size: 18),
+                    filled: true,
+                    fillColor: AppColors.background,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.border),
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
 
               // Buttons
@@ -211,6 +325,7 @@ class _EditMasterDataDialogState extends ConsumerState<EditMasterDataDialog> {
               ),
             ],
           ),
+          ),
         ),
       ),
     );
@@ -218,40 +333,92 @@ class _EditMasterDataDialogState extends ConsumerState<EditMasterDataDialog> {
 
   String _getCodeLabel() {
     switch (widget.item.category) {
-      case 'operators':
+      case 'operasyonlar':
+        return 'Operasyon Kodu';
+      case 'operatorler':
+      case 'personeller':
         return 'Ad Soyad';
-      case 'machines':
-        return 'Tezgah Kodu';
-      case 'reject-codes':
-        return 'Ret Kodu';
-      case 'zones':
+      case 'bolgeler':
         return 'Bölge Kodu';
-      case 'product-codes':
+      case 'ret-kodlari':
+        return 'Ret Kodu';
+      case 'tezgahlar':
+        return 'Tezgah No';
+      case 'urunler':
+      case 'ham-urunler':
         return 'Ürün Kodu';
-      case 'operation-names':
-        return 'Operasyon Adı';
-      case 'rework-operations':
-        return 'Rework İşlemi';
       default:
         return 'Kod';
     }
   }
 
+  String _getDescriptionLabel() {
+    switch (widget.item.category) {
+      case 'operasyonlar':
+        return 'Operasyon Adı (Opsiyonel)';
+      case 'operatorler':
+        return 'Sicil No (Opsiyonel)';
+      case 'personeller':
+        return 'Telefon No (Opsiyonel)';
+      case 'bolgeler':
+        return 'Bölge Adı (Opsiyonel)';
+      case 'ret-kodlari':
+        return 'Açıklama (Opsiyonel)';
+      case 'tezgahlar':
+        return 'Tezgah Türü (Opsiyonel)';
+      case 'urunler':
+      case 'ham-urunler':
+        return 'Ürün Adı';
+      default:
+        return 'Açıklama (Opsiyonel)';
+    }
+  }
+
   void _updateItem() {
     if (_formKey.currentState!.validate()) {
-      ref
-          .read(masterDataProvider.notifier)
-          .updateItem(
+      final code = _codeController.text;
+      final desc = _descriptionController.text.isNotEmpty ? _descriptionController.text : null;
+      final type = _productTypeController.text.isNotEmpty ? _productTypeController.text : null;
+
+      Map<String, dynamic> payload = {};
+
+      switch (widget.item.category) {
+        case 'operasyonlar':
+          payload = {'operasyonKodu': code, 'operasyonAdi': desc};
+          break;
+        case 'operatorler':
+          payload = {'adSoyad': code, 'sicilNo': desc};
+          break;
+        case 'personeller':
+          payload = {
+            'adSoyad': code, 
+            'telefonNo': desc,
+            if (_dogumTarihi != null) 'dogumTarihi': '${_dogumTarihi!.year}-${_dogumTarihi!.month.toString().padLeft(2, '0')}-${_dogumTarihi!.day.toString().padLeft(2, '0')}',
+            if (_yakinTelefonController.text.isNotEmpty) 'yakinTelefonNo': _yakinTelefonController.text,
+            if (_yakinlikDerecesiController.text.isNotEmpty) 'yakinlikDerecesi': _yakinlikDerecesiController.text,
+          };
+          break;
+        case 'bolgeler':
+          payload = {'bolgeKodu': code, 'bolgeAdi': desc};
+          break;
+        case 'ret-kodlari':
+          payload = {'kod': code, 'aciklama': desc};
+          break;
+        case 'tezgahlar':
+          payload = {'tezgahNo': code, 'tezgahTuru': desc};
+          break;
+        case 'urunler':
+          payload = {'urunKodu': code, 'urunAdi': desc, 'urunTuru': type ?? 'Belirtilmedi'};
+          break;
+        case 'ham-urunler':
+          payload = {'id': widget.item.id, 'urunKodu': code, 'urunAdi': desc, 'urunTuru': type ?? 'Belirtilmedi'};
+          break;
+      }
+
+      ref.read(masterDataProvider.notifier).updateItem(
             widget.item.id,
-            code: _codeController.text,
-            description: _descriptionController.text.isNotEmpty
-                ? _descriptionController.text
-                : null,
-            productType:
-                widget.item.category == 'product-codes' &&
-                    _productTypeController.text.isNotEmpty
-                ? _productTypeController.text
-                : null,
+            category: widget.item.category,
+            payload: payload,
           );
 
       Navigator.of(context).pop();

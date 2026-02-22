@@ -1,39 +1,32 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../../core/constants/app_colors.dart';
 import '../../../../../core/widgets/forms/sarj_no_picker.dart';
+import '../../../providers/audit_providers.dart';
+import '../../../providers/master_data_provider.dart';
+import '../../../../forms/presentation/providers/rework_providers.dart';
 
-class EditReworkDialog extends StatefulWidget {
+class EditReworkDialog extends ConsumerStatefulWidget {
   final Map<String, dynamic> data;
 
   const EditReworkDialog({super.key, required this.data});
 
   @override
-  State<EditReworkDialog> createState() => _EditReworkDialogState();
+  ConsumerState<EditReworkDialog> createState() => _EditReworkDialogState();
 }
 
-class _EditReworkDialogState extends State<EditReworkDialog> {
+class _EditReworkDialogState extends ConsumerState<EditReworkDialog> {
   late TextEditingController _productCodeController;
   late TextEditingController _productNameController;
   late TextEditingController _productTypeController;
   late TextEditingController _quantityController;
   late TextEditingController _descriptionController;
 
-  String? _selectedErrorReason;
+  int? _selectedRejectCodeId;
   String? _selectedResult;
   String _batchNo = '';
-
-  final List<String> _errorReasons = [
-    'İç Çap Hatası',
-    'Dış Çap Hatası',
-    'Profil Hatası',
-    'Yüzey Kalitesi',
-    'Çapak',
-    'Darbe/Çizik',
-    'Boyut Hatası',
-    'Montaj Uyumsuzluğu',
-    'Diğer',
-  ];
+  bool _isLoading = false;
 
   final List<String> _results = ['Tamir Edildi', 'Hurda', 'İade', 'Beklemede'];
 
@@ -41,23 +34,23 @@ class _EditReworkDialogState extends State<EditReworkDialog> {
   void initState() {
     super.initState();
     _productCodeController = TextEditingController(
-      text: widget.data['productCode'] ?? '',
+      text: widget.data['urunKodu'] ?? widget.data['productCode'] ?? '',
     );
     _productNameController = TextEditingController(
-      text: widget.data['productName'] ?? '',
+      text: widget.data['urunAdi'] ?? widget.data['productName'] ?? '',
     );
     _productTypeController = TextEditingController(
-      text: widget.data['productType'] ?? '',
+      text: widget.data['urunTuru'] ?? widget.data['productType'] ?? '',
     );
     _quantityController = TextEditingController(
-      text: widget.data['quantity']?.toString() ?? '1',
+      text: (widget.data['adet'] ?? widget.data['quantity'] ?? 1).toString(),
     );
     _descriptionController = TextEditingController(
-      text: widget.data['description'] ?? '',
+      text: widget.data['aciklama'] ?? widget.data['description'] ?? '',
     );
-    _selectedErrorReason = widget.data['errorReason'];
-    _selectedResult = widget.data['result'];
-    _batchNo = widget.data['batchNo'] ?? '';
+    _selectedRejectCodeId = widget.data['retKoduId'];
+    _selectedResult = widget.data['sonuc'] ?? widget.data['result'];
+    _batchNo = widget.data['sarjNo'] ?? widget.data['batchNo'] ?? '';
   }
 
   @override
@@ -72,6 +65,8 @@ class _EditReworkDialogState extends State<EditReworkDialog> {
 
   @override
   Widget build(BuildContext context) {
+    final rejectCodesAsync = ref.watch(rejectCodesProvider);
+
     return Dialog(
       backgroundColor: Colors.transparent,
       child: Container(
@@ -146,97 +141,108 @@ class _EditReworkDialogState extends State<EditReworkDialog> {
 
             // Content
             Expanded(
-              child: SingleChildScrollView(
-                padding: const EdgeInsets.all(20),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    // Product Code
-                    _buildTextField(
-                      label: 'Ürün Kodu',
-                      controller: _productCodeController,
-                      icon: LucideIcons.box,
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Product Name & Type (Read-only)
-                    Row(
+              child: Stack(
+                children: [
+                  SingleChildScrollView(
+                    padding: const EdgeInsets.all(20),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
-                        Expanded(
-                          child: _buildTextField(
-                            label: 'Ürün Adı',
-                            controller: _productNameController,
-                            icon: LucideIcons.tag,
-                            enabled: false,
-                          ),
+                        // Product Code
+                        _buildTextField(
+                          label: 'Ürün Kodu',
+                          controller: _productCodeController,
+                          icon: LucideIcons.box,
                         ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildTextField(
-                            label: 'Ürün Türü',
-                            controller: _productTypeController,
-                            icon: LucideIcons.package,
-                            enabled: false,
-                          ),
+                        const SizedBox(height: 12),
+
+                        // Product Name & Type (Read-only)
+                        Row(
+                          children: [
+                            Expanded(
+                              child: _buildTextField(
+                                label: 'Ürün Adı',
+                                controller: _productNameController,
+                                icon: LucideIcons.tag,
+                                enabled: false,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildTextField(
+                                label: 'Ürün Türü',
+                                controller: _productTypeController,
+                                icon: LucideIcons.package,
+                                enabled: false,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Şarj No Picker
+                        SarjNoPicker(
+                          initialValue: _batchNo,
+                          onChanged: (value) {
+                            setState(() => _batchNo = value);
+                          },
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Error Reason & Result
+                        Row(
+                          children: [
+                            Expanded(
+                              child: rejectCodesAsync.when(
+                                data: (codes) => _buildRejectCodeDropdown(
+                                  label: 'Hata Nedeni',
+                                  value: _selectedRejectCodeId,
+                                  items: codes,
+                                  onChanged: (val) => setState(() => _selectedRejectCodeId = val),
+                                ),
+                                loading: () => const Center(child: CircularProgressIndicator()),
+                                error: (e, s) => Text('Hata: $e', style: const TextStyle(color: Colors.red)),
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: _buildResultDropdown(
+                                label: 'Sonuç',
+                                value: _selectedResult,
+                                items: _results,
+                                icon: LucideIcons.checkCircle,
+                                onChanged: (val) =>
+                                    setState(() => _selectedResult = val),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Quantity
+                        _buildTextField(
+                          label: 'Adet',
+                          controller: _quantityController,
+                          icon: LucideIcons.hash,
+                        ),
+                        const SizedBox(height: 12),
+
+                        // Description
+                        _buildTextField(
+                          label: 'Açıklama',
+                          controller: _descriptionController,
+                          icon: LucideIcons.fileText,
+                          maxLines: 3,
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
-
-                    // Şarj No Picker
-                    SarjNoPicker(
-                      initialValue: _batchNo,
-                      onChanged: (value) {
-                        setState(() => _batchNo = value);
-                      },
+                  ),
+                  if (_isLoading)
+                    Container(
+                      color: Colors.black26,
+                      child: const Center(child: CircularProgressIndicator()),
                     ),
-                    const SizedBox(height: 12),
-
-                    // Error Reason & Result
-                    Row(
-                      children: [
-                        Expanded(
-                          child: _buildDropdown(
-                            label: 'Hata Nedeni',
-                            value: _selectedErrorReason,
-                            items: _errorReasons,
-                            icon: LucideIcons.alertCircle,
-                            onChanged: (val) =>
-                                setState(() => _selectedErrorReason = val),
-                          ),
-                        ),
-                        const SizedBox(width: 12),
-                        Expanded(
-                          child: _buildDropdown(
-                            label: 'Sonuç',
-                            value: _selectedResult,
-                            items: _results,
-                            icon: LucideIcons.checkCircle,
-                            onChanged: (val) =>
-                                setState(() => _selectedResult = val),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Quantity
-                    _buildTextField(
-                      label: 'Adet',
-                      controller: _quantityController,
-                      icon: LucideIcons.hash,
-                    ),
-                    const SizedBox(height: 12),
-
-                    // Description
-                    _buildTextField(
-                      label: 'Açıklama',
-                      controller: _descriptionController,
-                      icon: LucideIcons.fileText,
-                      maxLines: 3,
-                    ),
-                  ],
-                ),
+                ],
               ),
             ),
 
@@ -254,7 +260,7 @@ class _EditReworkDialogState extends State<EditReworkDialog> {
                 children: [
                   Expanded(
                     child: OutlinedButton(
-                      onPressed: () => Navigator.pop(context),
+                      onPressed: _isLoading ? null : () => Navigator.pop(context),
                       style: OutlinedButton.styleFrom(
                         side: BorderSide(color: AppColors.border),
                         padding: const EdgeInsets.symmetric(vertical: 14),
@@ -274,8 +280,10 @@ class _EditReworkDialogState extends State<EditReworkDialog> {
                   const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton.icon(
-                      onPressed: _saveChanges,
-                      icon: const Icon(LucideIcons.save, size: 16),
+                      onPressed: _isLoading ? null : _saveChanges,
+                      icon: _isLoading 
+                        ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                        : const Icon(LucideIcons.save, size: 16),
                       label: const Text(
                         'Kaydet',
                         style: TextStyle(fontWeight: FontWeight.bold),
@@ -350,7 +358,71 @@ class _EditReworkDialogState extends State<EditReworkDialog> {
     );
   }
 
-  Widget _buildDropdown({
+  Widget _buildRejectCodeDropdown({
+    required String label,
+    required int? value,
+    required List<MasterDataItem> items,
+    required Function(int?) onChanged,
+  }) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: TextStyle(
+            color: AppColors.textSecondary,
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+          decoration: BoxDecoration(
+            color: AppColors.surfaceLight,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: AppColors.border),
+          ),
+          child: Row(
+            children: [
+              const Icon(LucideIcons.alertCircle, color: AppColors.textSecondary, size: 18),
+              const SizedBox(width: 8),
+              Expanded(
+                child: DropdownButtonHideUnderline(
+                  child: DropdownButton<int>(
+                    value: value,
+                    hint: Text(
+                      'Seçin',
+                      style: TextStyle(color: AppColors.textSecondary),
+                    ),
+                    isExpanded: true,
+                    dropdownColor: AppColors.surfaceLight,
+                    icon: const Icon(
+                      LucideIcons.chevronDown,
+                      color: AppColors.textSecondary,
+                      size: 16,
+                    ),
+                    style: TextStyle(color: AppColors.textMain, fontSize: 13),
+                    items: items
+                        .map(
+                          (item) => DropdownMenuItem(
+                            value: item.id, 
+                            child: Text('${item.code} - ${item.description ?? ''}')
+                          ),
+                        )
+                        .toList(),
+                    onChanged: onChanged,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildResultDropdown({
     required String label,
     required String? value,
     required List<String> items,
@@ -413,9 +485,9 @@ class _EditReworkDialogState extends State<EditReworkDialog> {
     );
   }
 
-  void _saveChanges() {
+  Future<void> _saveChanges() async {
     if (_productCodeController.text.isEmpty ||
-        _selectedErrorReason == null ||
+        _selectedRejectCodeId == null ||
         _selectedResult == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
@@ -426,12 +498,46 @@ class _EditReworkDialogState extends State<EditReworkDialog> {
       return;
     }
 
-    Navigator.pop(context);
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(
-        content: Text('Rework kaydı güncellendi: ${widget.data['id']}'),
-        backgroundColor: AppColors.success,
-      ),
-    );
+    setState(() => _isLoading = true);
+
+    try {
+      final id = widget.data['id'] as int;
+      final payload = {
+        "id": id,
+        "urunId": widget.data['urunId'],
+        "urunKodu": _productCodeController.text,
+        "adet": int.tryParse(_quantityController.text) ?? 1,
+        "retKoduId": _selectedRejectCodeId,
+        "sarjNo": _batchNo,
+        "sonuc": _selectedResult,
+        "aciklama": _descriptionController.text,
+        "islemTarihi": DateTime.now().toIso8601String(),
+      };
+
+      await ref.read(reworkRepositoryProvider).update(id, payload);
+      
+      ref.invalidate(auditStateProvider);
+
+      if (mounted) {
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Rework kaydı başarıyla güncellendi (ID: $id)'),
+            backgroundColor: AppColors.success,
+          ),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Hata: $e'),
+            backgroundColor: AppColors.error,
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _isLoading = false);
+    }
   }
 }

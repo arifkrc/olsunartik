@@ -50,9 +50,11 @@ class _OperatorAutocompleteState extends ConsumerState<OperatorAutocomplete> {
   }
 
   List<String> _getFilteredOperators() {
-    final masterData = ref.watch(masterDataProvider);
+    final masterDataAsync = ref.watch(masterDataProvider);
+    final masterData = masterDataAsync.asData?.value ?? [];
+
     final operators = masterData
-        .where((item) => item.category == 'operators' && item.isActive)
+        .where((item) => item.category == 'operatorler' && item.isActive)
         .map((item) => item.code)
         .toList();
 

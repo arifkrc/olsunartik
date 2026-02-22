@@ -50,8 +50,23 @@ class FireKayitRemoteDataSource {
     }
   }
 
-  Future<void> updateForm(int id, FireKayitRequestDto data) async {
-    await _dio.put('firekayitformu/$id', data: data.toJson());
+  Future<void> updateForm(int id, Map<String, dynamic> data) async {
+    try {
+      final response = await _dio.put('firekayitformu/$id', data: data);
+      final respData = response.data;
+      if (respData['success'] == false) {
+        throw Exception(respData['message'] ?? 'Güncelleme hatası');
+      }
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 400) {
+        final errorData = e.response?.data;
+        final message = errorData?['message'] ??
+            (errorData?['errors'] as List?)?.first ??
+            'Geçersiz istek';
+        throw Exception(message);
+      }
+      throw Exception(e.message ?? 'Bilinmeyen hata');
+    }
   }
 
   Future<void> deleteForm(int id) async {

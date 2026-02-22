@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../../core/constants/app_colors.dart';
+import '../../providers/master_data_provider.dart';
+import '../../../../auth/presentation/providers/auth_providers.dart';
 
 
 class AddUserDialog extends ConsumerStatefulWidget {
@@ -13,48 +15,15 @@ class AddUserDialog extends ConsumerStatefulWidget {
 
 class _AddUserDialogState extends ConsumerState<AddUserDialog> {
   final _formKey = GlobalKey<FormState>();
-  final _fullNameController = TextEditingController();
   final _usernameController = TextEditingController();
   final _passwordController = TextEditingController();
-  final _phoneController = TextEditingController();
-  final _relativePhoneController = TextEditingController();
-  DateTime? _selectedDate;
+  int? _selectedPersonelId;
 
   @override
   void dispose() {
-    _fullNameController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
-    _phoneController.dispose();
-    _relativePhoneController.dispose();
     super.dispose();
-  }
-
-  Future<void> _selectDate(BuildContext context) async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now().subtract(const Duration(days: 365 * 20)),
-      firstDate: DateTime(1950),
-      lastDate: DateTime.now(),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.dark(
-              primary: AppColors.primary,
-              onPrimary: Colors.white,
-              surface: AppColors.surface,
-              onSurface: AppColors.textMain,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null && picked != _selectedDate) {
-      setState(() {
-        _selectedDate = picked;
-      });
-    }
   }
 
   @override
@@ -103,43 +72,46 @@ class _AddUserDialogState extends ConsumerState<AddUserDialog> {
                 ),
                 const SizedBox(height: 24),
 
-                // Ad Soyad
-                TextFormField(
-                  controller: _fullNameController,
-                  style: const TextStyle(color: AppColors.textMain),
-                  decoration: InputDecoration(
-                    labelText: 'Ad Soyad',
-                    labelStyle: const TextStyle(color: AppColors.textSecondary),
-                    prefixIcon: const Icon(LucideIcons.user, size: 18),
-                    filled: true,
-                    fillColor: AppColors.background,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppColors.border),
-                    ),
-                  ),
-                  validator: (value) =>
-                      value?.isEmpty == true ? 'Gerekli' : null,
-                ),
-                const SizedBox(height: 16),
+                // Personel Seçimi
+                Consumer(
+                  builder: (context, ref, child) {
+                    final personellerAsyncValue = ref.watch(personnelListProvider);
 
-                // Kullanıcı Adı
-                TextFormField(
-                  controller: _usernameController,
-                  style: const TextStyle(color: AppColors.textMain),
-                  decoration: InputDecoration(
-                    labelText: 'Kullanıcı Adı',
-                    labelStyle: const TextStyle(color: AppColors.textSecondary),
-                    prefixIcon: const Icon(LucideIcons.atSign, size: 18),
-                    filled: true,
-                    fillColor: AppColors.background,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppColors.border),
-                    ),
-                  ),
-                  validator: (value) =>
-                      value?.isEmpty == true ? 'Gerekli' : null,
+                    return personellerAsyncValue.when(
+                      data: (items) {
+                        return DropdownButtonFormField<int>(
+                          initialValue: _selectedPersonelId,
+                          style: const TextStyle(color: AppColors.textMain),
+                          dropdownColor: AppColors.surface,
+                          decoration: InputDecoration(
+                            labelText: 'Personel Seçimi',
+                            labelStyle: const TextStyle(color: AppColors.textSecondary),
+                            prefixIcon: const Icon(LucideIcons.user, size: 18),
+                            filled: true,
+                            fillColor: AppColors.background,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(12),
+                              borderSide: BorderSide(color: AppColors.border),
+                            ),
+                          ),
+                          items: items.map((person) {
+                            return DropdownMenuItem<int>(
+                              value: person.id,
+                              child: Text(person.code),
+                            );
+                          }).toList(),
+                          onChanged: (value) {
+                            setState(() {
+                              _selectedPersonelId = value;
+                            });
+                          },
+                          validator: (value) => value == null ? 'Lütfen personel seçin' : null,
+                        );
+                      },
+                      loading: () => const Center(child: CircularProgressIndicator()),
+                      error: (err, stack) => Text('Hata: $err', style: TextStyle(color: Colors.red)),
+                    );
+                  },
                 ),
                 const SizedBox(height: 16),
 
@@ -165,15 +137,15 @@ class _AddUserDialogState extends ConsumerState<AddUserDialog> {
                 ),
                 const SizedBox(height: 16),
 
-                // Telefon
-                TextFormField(
-                  controller: _phoneController,
+                // Yetki Seviyesi
+                DropdownButtonFormField<int>(
+                  initialValue: _selectedRole,
                   style: const TextStyle(color: AppColors.textMain),
-                  keyboardType: TextInputType.phone,
+                  dropdownColor: AppColors.surface,
                   decoration: InputDecoration(
-                    labelText: 'Telefon Numarası',
+                    labelText: 'Yetki Seviyesi',
                     labelStyle: const TextStyle(color: AppColors.textSecondary),
-                    prefixIcon: const Icon(LucideIcons.phone, size: 18),
+                    prefixIcon: const Icon(LucideIcons.shield, size: 18),
                     filled: true,
                     fillColor: AppColors.background,
                     border: OutlineInputBorder(
@@ -181,73 +153,27 @@ class _AddUserDialogState extends ConsumerState<AddUserDialog> {
                       borderSide: BorderSide(color: AppColors.border),
                     ),
                   ),
+                  items: const [
+                    DropdownMenuItem(value: 0, child: Text('Süper Admin')),
+                    DropdownMenuItem(value: 1, child: Text('Admin')),
+                    DropdownMenuItem(value: 2, child: Text('Yönetici')),
+                    DropdownMenuItem(value: 3, child: Text('Kullanıcı')),
+                    DropdownMenuItem(value: 4, child: Text('Misafir')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) {
+                      setState(() => _selectedRole = value);
+                    }
+                  },
                 ),
-                const SizedBox(height: 16),
-
-                // Doğum Tarihi Picker
-                InkWell(
-                  onTap: () => _selectDate(context),
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 12,
-                      vertical: 16,
-                    ),
-                    decoration: BoxDecoration(
-                      color: AppColors.background,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: AppColors.border),
-                    ),
-                    child: Row(
-                      children: [
-                        const Icon(
-                          LucideIcons.calendar,
-                          size: 18,
-                          color: AppColors.textSecondary,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          _selectedDate == null
-                              ? 'Doğum Tarihi Seçiniz'
-                              : '${_selectedDate!.day}.${_selectedDate!.month}.${_selectedDate!.year}',
-                          style: TextStyle(
-                            color: _selectedDate == null
-                                ? AppColors.textSecondary
-                                : AppColors.textMain,
-                            fontSize: 16,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
-                // Yakın Telefon
-                TextFormField(
-                  controller: _relativePhoneController,
-                  style: const TextStyle(color: AppColors.textMain),
-                  keyboardType: TextInputType.phone,
-                  decoration: InputDecoration(
-                    labelText: 'Yakın Telefon Numarası',
-                    labelStyle: const TextStyle(color: AppColors.textSecondary),
-                    prefixIcon: const Icon(LucideIcons.contact, size: 18),
-                    filled: true,
-                    fillColor: AppColors.background,
-                    border: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: AppColors.border),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 16),
-
+                const SizedBox(height: 24),
 
                 // Buttons
                 Row(
                   children: [
                     Expanded(
                       child: OutlinedButton(
-                        onPressed: () => Navigator.of(context).pop(),
+                        onPressed: _isLoading ? null : () => Navigator.of(context).pop(),
                         style: OutlinedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 16),
                           shape: RoundedRectangleBorder(
@@ -264,7 +190,7 @@ class _AddUserDialogState extends ConsumerState<AddUserDialog> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: ElevatedButton(
-                        onPressed: _addUser,
+                        onPressed: _isLoading ? null : _addUser,
                         style: ElevatedButton.styleFrom(
                           backgroundColor: AppColors.primary,
                           foregroundColor: Colors.white,
@@ -273,7 +199,16 @@ class _AddUserDialogState extends ConsumerState<AddUserDialog> {
                             borderRadius: BorderRadius.circular(12),
                           ),
                         ),
-                        child: const Text('Ekle'),
+                        child: _isLoading 
+                          ? const SizedBox(
+                              width: 24,
+                              height: 24,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.white,
+                              ),
+                            )
+                          : const Text('Ekle'),
                       ),
                     ),
                   ],
@@ -286,19 +221,45 @@ class _AddUserDialogState extends ConsumerState<AddUserDialog> {
     );
   }
 
-  void _addUser() {
+  bool _isLoading = false;
+  int _selectedRole = 3; // Default to Kullanıcı
+
+  void _addUser() async {
     if (_formKey.currentState!.validate()) {
-      // Mock API logic
-      // ref.read(userManagementProvider.notifier).addUser(...);
+      setState(() => _isLoading = true);
+      
+      try {
+        final authRepo = ref.read(authRepositoryProvider);
+        await authRepo.register(
+          kullaniciAdi: _usernameController.text,
+          parola: _passwordController.text,
+          hesapSeviyesi: _selectedRole.toString(),
+          personelId: _selectedPersonelId,
+        );
 
-      Navigator.of(context).pop();
-
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${_fullNameController.text} başarıyla eklendi'),
-          backgroundColor: AppColors.duzceGreen,
-        ),
-      );
+        if (mounted) {
+          Navigator.of(context).pop();
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${_usernameController.text} başarıyla eklendi'),
+              backgroundColor: AppColors.duzceGreen,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Hata: $e'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      } finally {
+        if (mounted) {
+          setState(() => _isLoading = false);
+        }
+      }
     }
   }
 }

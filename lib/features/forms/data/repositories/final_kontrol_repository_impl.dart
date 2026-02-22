@@ -27,8 +27,8 @@ class FinalKontrolRepositoryImpl implements IFinalKontrolRepository {
   }
 
   @override
-  Future<void> update(FinalKontrolForm form) async {
-    // Not implemented with new structure
+  Future<void> update(int id, Map<String, dynamic> data) async {
+    await _remoteDataSource.update(id, data);
   }
 
   @override

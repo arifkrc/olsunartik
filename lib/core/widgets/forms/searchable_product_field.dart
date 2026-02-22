@@ -70,7 +70,7 @@ class _SearchableProductFieldState
 
   @override
   Widget build(BuildContext context) {
-    final productSearchState = ref.watch(_activeProvider);
+    final AsyncValue<List<Product>> productSearchState = ref.watch(_activeProvider);
 
     return Autocomplete<Product>(
       optionsBuilder: (TextEditingValue textEditingValue) {
@@ -116,10 +116,7 @@ class _SearchableProductFieldState
                   color: AppColors.textSecondary,
                   size: 18,
                 ),
-                suffixIcon: productSearchState.maybeWhen(
-                      loading: () => true,
-                      orElse: () => false,
-                    )
+                suffixIcon: productSearchState.isLoading
                     ? const Padding(
                         padding: EdgeInsets.all(12.0),
                         child: SizedBox(

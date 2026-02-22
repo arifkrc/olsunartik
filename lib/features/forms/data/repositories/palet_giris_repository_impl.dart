@@ -39,21 +39,8 @@ class PaletGirisRepositoryImpl implements IPaletGirisRepository {
   }
 
   @override
-  Future<void> update(PaletGirisForm form) async {
-    final dto = PaletGirisFormDto(
-      id: form.id,
-      tedarikciAdi: form.tedarikciAdi,
-      irsaliyeNo: form.irsaliyeNo,
-      urunAdi: form.urunAdi,
-      nemOlcumleri: form.nemOlcumleri,
-      fizikiYapiKontrol: form.fizikiYapiKontrol,
-      muhurKontrol: form.muhurKontrol,
-      irsaliyeEslestirme: form.irsaliyeEslestirme,
-      aciklama: form.aciklama,
-      fotografYolu: form.fotografYolu,
-      kayitTarihi: form.kayitTarihi,
-    );
-    await _remoteDataSource.update(form.id!, dto.toJson());
+  Future<void> update(int id, Map<String, dynamic> data) async {
+    await _remoteDataSource.update(id, data);
   }
 
   @override

@@ -38,19 +38,8 @@ class GirisKaliteKontrolRepositoryImpl
   }
 
   @override
-  Future<void> update(GirisKaliteKontrolForm form) async {
-    final dto = GirisKaliteKontrolFormDto(
-      id: form.id,
-      tedarikci: form.tedarikci,
-      urunKodu: form.urunKodu,
-      lotNo: form.lotNo,
-      miktar: form.miktar,
-      kabul: form.kabul,
-      retNedeni: form.retNedeni,
-      aciklama: form.aciklama,
-      kayitTarihi: form.kayitTarihi,
-    );
-    await _remoteDataSource.update(form.id!, dto.toJson());
+  Future<void> update(int id, Map<String, dynamic> data) async {
+    await _remoteDataSource.update(id, data);
   }
 
   @override

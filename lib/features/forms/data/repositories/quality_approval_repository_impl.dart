@@ -37,8 +37,8 @@ class QualityApprovalRepositoryImpl implements IQualityApprovalRepository {
   }
 
   @override
-  Future<void> update(QualityApprovalForm form) async {
-    throw UnimplementedError('Henüz implement edilmedi');
+  Future<void> update(int id, Map<String, dynamic> data) async {
+    await _remoteDataSource.update(id, data);
   }
 
   @override
