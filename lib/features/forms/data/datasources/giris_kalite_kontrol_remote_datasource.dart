@@ -1,3 +1,4 @@
+import '../../../../core/models/paged_result.dart';
 import 'package:dio/dio.dart';
 import '../models/giris_kalite_kontrol_form_dto.dart';
 
@@ -6,14 +7,39 @@ class GirisKaliteKontrolRemoteDataSource {
 
   GirisKaliteKontrolRemoteDataSource(this._dio);
 
+  Future<PagedResult<GirisKaliteKontrolFormDto>> getPaginated({
+    int pageNumber = 1,
+    int pageSize = 10,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    final response = await _dio.get(
+      'giriskalite',
+      queryParameters: {
+        'pageNumber': pageNumber,
+        'pageSize': pageSize,
+        if (startDate != null) 'startDate': startDate.toUtc().toIso8601String(),
+        if (endDate != null) 'endDate': endDate.toUtc().toIso8601String(),
+      },
+    );
+    if (response.data != null) {
+      // Assuming success structure or direct PagedResult structure
+      // Let's check if it's wrapped in 'data'
+      final json = response.data;
+      final data = (json is Map && json.containsKey('data')) ? json['data'] : json;
+      
+      return PagedResult<GirisKaliteKontrolFormDto>.fromJson(
+        data as Map<String, dynamic>,
+        (j) => GirisKaliteKontrolFormDto.fromJson(j),
+      );
+    }
+    throw Exception('Veriler alınamadı');
+  }
+
   Future<List<GirisKaliteKontrolFormDto>> getAll() async {
     final response = await _dio.get('giris-kalite-kontrol');
-    final List<dynamic> data = response.data as List<dynamic>;
-    return data
-        .map(
-          (json) =>
-              GirisKaliteKontrolFormDto.fromJson(json as Map<String, dynamic>),
-        )
+    return (response.data as List)
+        .map((j) => GirisKaliteKontrolFormDto.fromJson(j))
         .toList();
   }
 

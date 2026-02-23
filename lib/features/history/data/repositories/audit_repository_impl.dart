@@ -11,10 +11,12 @@ class AuditRepositoryImpl implements IAuditRepository {
   Future<List<AuditAction>> getMyActions({
     required int pageNumber,
     required int pageSize,
+    String? varlikTipi,
   }) async {
     final dtos = await _remoteDataSource.getMyActions(
       pageNumber: pageNumber,
       pageSize: pageSize,
+      varlikTipi: varlikTipi,
     );
     return dtos.map((dto) => dto.toEntity()).toList();
   }

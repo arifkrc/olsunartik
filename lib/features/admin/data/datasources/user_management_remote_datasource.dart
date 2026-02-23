@@ -58,6 +58,7 @@ class UserManagementRemoteDataSource {
   }
 
   Future<void> deleteUser(int id) async {
-    await dio.delete('${ApiConstants.apiBase}/kullanici/$id');
+    // Soft delete using PUT request
+    await dio.put('${ApiConstants.apiBase}/kullanici/$id', data: {'isActive': false});
   }
 }

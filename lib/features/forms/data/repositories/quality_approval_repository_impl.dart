@@ -1,3 +1,4 @@
+import '../../../../core/models/paged_result.dart';
 import '../../domain/entities/quality_approval_form.dart';
 import '../../domain/repositories/i_quality_approval_repository.dart';
 import '../datasources/quality_approval_remote_datasource.dart';
@@ -7,6 +8,44 @@ class QualityApprovalRepositoryImpl implements IQualityApprovalRepository {
   final QualityApprovalRemoteDataSource _remoteDataSource;
 
   QualityApprovalRepositoryImpl(this._remoteDataSource);
+
+  @override
+  Future<PagedResult<QualityApprovalForm>> getForms({
+    int pageNumber = 1,
+    int pageSize = 10,
+    DateTime? startDate,
+    DateTime? endDate,
+    int? vardiyaId,
+  }) async {
+    final pagedDtos = await _remoteDataSource.getForms(
+      pageNumber: pageNumber,
+      pageSize: pageSize,
+      startDate: startDate,
+      endDate: endDate,
+      vardiyaId: vardiyaId,
+    );
+
+    return PagedResult<QualityApprovalForm>(
+      items: pagedDtos.items.map((dto) => QualityApprovalForm(
+        id: dto.id,
+        urunId: dto.urunId,
+        urunKodu: dto.urunKodu ?? '',
+        urunAdi: dto.urunAdi ?? '',
+        urunTuru: dto.urunTuru ?? '',
+        adet: dto.adet,
+        isUygun: dto.isUygun,
+        retKoduId: dto.retKoduId,
+        aciklama: dto.aciklama,
+        islemTarihi: dto.islemTarihi,
+      )).toList(),
+      totalCount: pagedDtos.totalCount,
+      pageNumber: pagedDtos.pageNumber,
+      pageSize: pagedDtos.pageSize,
+      totalPages: pagedDtos.totalPages,
+      hasNextPage: pagedDtos.hasNextPage,
+      hasPreviousPage: pagedDtos.hasPreviousPage,
+    );
+  }
 
   @override
   Future<String> create(QualityApprovalForm form) async {
@@ -43,6 +82,6 @@ class QualityApprovalRepositoryImpl implements IQualityApprovalRepository {
 
   @override
   Future<void> delete(int id) async {
-    throw UnimplementedError('Henüz implement edilmedi');
+    await _remoteDataSource.delete(id);
   }
 }

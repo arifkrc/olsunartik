@@ -2,9 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../../core/constants/app_colors.dart';
-import '../../../providers/audit_providers.dart';
-import '../../../providers/master_data_provider.dart';
+import '../../providers/master_data_provider.dart';
+import '../../../domain/entities/master_data_item.dart';
 import '../../../../forms/presentation/providers/quality_approval_providers.dart';
+import '../../providers/report_edit_providers.dart';
 
 class EditQualityApprovalDialog extends ConsumerStatefulWidget {
   final Map<String, dynamic> data;
@@ -81,7 +82,7 @@ class _EditQualityApprovalDialogState extends ConsumerState<EditQualityApprovalD
           border: Border.all(color: AppColors.glassBorder),
         ),
         child: Column(
-          mainAxisSize: MapAxisSize.min,
+          mainAxisSize: MainAxisSize.min,
           children: [
             // Header
             Container(
@@ -422,30 +423,30 @@ class _EditQualityApprovalDialogState extends ConsumerState<EditQualityApprovalD
                       width: 2,
                     ),
                   ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      Icon(
-                        _complianceStatus == 'Uygun'
-                            ? LucideIcons.checkCircle2
-                            : LucideIcons.circle,
-                        color: _complianceStatus == 'Uygun'
-                            ? Colors.white
-                            : AppColors.textSecondary,
-                        size: 18,
+                                        child: Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(
+                            _complianceStatus == 'Uygun'
+                                ? LucideIcons.checkCircle2
+                                : LucideIcons.circle,
+                            color: _complianceStatus == 'Uygun'
+                                ? Colors.white
+                                : AppColors.textSecondary,
+                            size: 18,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            'Uygun',
+                            style: TextStyle(
+                              color: _complianceStatus == 'Uygun'
+                                  ? Colors.white
+                                  : AppColors.textSecondary,
+                              fontWeight: FontWeight.bold,
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Uygun',
-                        style: TextStyle(
-                          color: _complianceStatus == 'Uygun'
-                              ? Colors.white
-                              ? AppColors.textSecondary,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
                 ),
               ),
             ),
@@ -592,7 +593,7 @@ class _EditQualityApprovalDialogState extends ConsumerState<EditQualityApprovalD
 
       await ref.read(qualityApprovalRepositoryProvider).update(id, payload);
       
-      ref.invalidate(auditStateProvider);
+      ref.invalidate(reportListProvider);
 
       if (mounted) {
         Navigator.pop(context);

@@ -1,3 +1,4 @@
+import '../../../../core/models/paged_result.dart';
 import '../../domain/entities/giris_kalite_kontrol_form.dart';
 import '../../domain/repositories/i_giris_kalite_kontrol_repository.dart';
 import '../datasources/giris_kalite_kontrol_remote_datasource.dart';
@@ -8,6 +9,30 @@ class GirisKaliteKontrolRepositoryImpl
   final GirisKaliteKontrolRemoteDataSource _remoteDataSource;
 
   GirisKaliteKontrolRepositoryImpl(this._remoteDataSource);
+
+  @override
+  Future<PagedResult<GirisKaliteKontrolForm>> getForms({
+    int pageNumber = 1,
+    int pageSize = 10,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    final pagedDtos = await _remoteDataSource.getPaginated(
+      pageNumber: pageNumber,
+      pageSize: pageSize,
+      startDate: startDate,
+      endDate: endDate,
+    );
+    return PagedResult<GirisKaliteKontrolForm>(
+      items: pagedDtos.items.map((dto) => dto.toEntity()).toList(),
+      totalCount: pagedDtos.totalCount,
+      pageNumber: pagedDtos.pageNumber,
+      pageSize: pagedDtos.pageSize,
+      totalPages: pagedDtos.totalPages,
+      hasNextPage: pagedDtos.hasNextPage,
+      hasPreviousPage: pagedDtos.hasPreviousPage,
+    );
+  }
 
   @override
   Future<List<GirisKaliteKontrolForm>> getAll() async {

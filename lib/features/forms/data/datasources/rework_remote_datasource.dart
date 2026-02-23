@@ -1,3 +1,4 @@
+import '../../../../core/models/paged_result.dart';
 import 'package:dio/dio.dart';
 import '../models/rework_form_dto.dart';
 
@@ -6,11 +7,36 @@ class ReworkRemoteDataSource {
 
   ReworkRemoteDataSource(this._dio);
 
+  Future<PagedResult<ReworkFormDto>> getPaginated({
+    int pageNumber = 1,
+    int pageSize = 10,
+    DateTime? startDate,
+    DateTime? endDate,
+    int? vardiyaId,
+  }) async {
+    final response = await _dio.get(
+      'reworkformu/paginated',
+      queryParameters: {
+        'pageNumber': pageNumber,
+        'pageSize': pageSize,
+        if (startDate != null) 'startDate': startDate.toUtc().toIso8601String(),
+        if (endDate != null) 'endDate': endDate.toUtc().toIso8601String(),
+        if (vardiyaId != null) 'vardiyaId': vardiyaId,
+      },
+    );
+    if (response.data['success'] == true) {
+      return PagedResult<ReworkFormDto>.fromJson(
+        response.data['data'],
+        (j) => ReworkFormDto.fromJson(j),
+      );
+    }
+    throw Exception(response.data['message'] ?? 'Veriler alınamadı');
+  }
+
   Future<List<ReworkFormDto>> getAll() async {
     final response = await _dio.get('Rework');
-    final List<dynamic> data = response.data['data'] as List<dynamic>? ?? [];
-    return data
-        .map((json) => ReworkFormDto.fromJson(json as Map<String, dynamic>))
+    return (response.data['data'] as List)
+        .map((j) => ReworkFormDto.fromJson(j))
         .toList();
   }
 

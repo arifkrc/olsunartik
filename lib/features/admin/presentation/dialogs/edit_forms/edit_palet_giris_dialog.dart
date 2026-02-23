@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../../core/constants/app_colors.dart';
-import '../../../providers/audit_providers.dart';
+import '../../providers/report_edit_providers.dart';
 import '../../../../forms/presentation/providers/palet_giris_providers.dart';
 
 class EditPaletGirisDialog extends ConsumerStatefulWidget {
@@ -504,7 +504,7 @@ class _EditPaletGirisDialogState extends ConsumerState<EditPaletGirisDialog> {
 
       await ref.read(paletGirisRepositoryProvider).update(id, payload);
       
-      ref.invalidate(auditStateProvider);
+      ref.invalidate(reportListProvider);
 
       if (mounted) {
         Navigator.pop(context);

@@ -115,6 +115,27 @@ class _AddUserDialogState extends ConsumerState<AddUserDialog> {
                 ),
                 const SizedBox(height: 16),
 
+                // Kullanıcı Adı
+                TextFormField(
+                  controller: _usernameController,
+                  style: const TextStyle(color: AppColors.textMain),
+                  decoration: InputDecoration(
+                    labelText: 'Kullanıcı Adı',
+                    labelStyle: const TextStyle(color: AppColors.textSecondary),
+                    prefixIcon: const Icon(LucideIcons.userCheck, size: 18),
+                    filled: true,
+                    fillColor: AppColors.background,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: BorderSide(color: AppColors.border),
+                    ),
+                  ),
+                  validator: (value) => value == null || value.isEmpty
+                      ? 'Kullanıcı adı gerekli'
+                      : null,
+                ),
+                const SizedBox(height: 16),
+
                 // Şifre
                 TextFormField(
                   controller: _passwordController,

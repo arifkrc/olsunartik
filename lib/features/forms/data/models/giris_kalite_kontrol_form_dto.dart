@@ -20,7 +20,9 @@ class GirisKaliteKontrolFormDto extends GirisKaliteKontrolForm {
       urunKodu: json['urunKodu'] as String,
       lotNo: json['lotNo'] as String,
       miktar: json['miktar'] as int,
-      kabul: json['kabul'] as String,
+      kabul: json['kabul'] is bool 
+          ? json['kabul'] as bool 
+          : json['kabul'].toString().toLowerCase() == 'kabul' || json['kabul'].toString().toLowerCase() == 'true',
       retNedeni: json['retNedeni'] as String?,
       aciklama: json['aciklama'] as String?,
       kayitTarihi: DateTime.parse(json['kayitTarihi'] as String),
@@ -37,7 +39,7 @@ class GirisKaliteKontrolFormDto extends GirisKaliteKontrolForm {
       'kabul': kabul,
       if (retNedeni != null) 'retNedeni': retNedeni,
       if (aciklama != null) 'aciklama': aciklama,
-      'kayitTarihi': kayitTarihi.toIso8601String(),
+      'kayitTarihi': kayitTarihi.toUtc().toIso8601String(),
     };
   }
 

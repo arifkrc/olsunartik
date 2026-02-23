@@ -1,3 +1,4 @@
+import '../../../../core/models/paged_result.dart';
 import '../../domain/entities/rework_form.dart';
 import '../../domain/repositories/i_rework_repository.dart';
 import '../datasources/rework_remote_datasource.dart';
@@ -7,6 +8,32 @@ class ReworkRepositoryImpl implements IReworkRepository {
   final ReworkRemoteDataSource _remoteDataSource;
 
   ReworkRepositoryImpl(this._remoteDataSource);
+
+  @override
+  Future<PagedResult<ReworkForm>> getForms({
+    int pageNumber = 1,
+    int pageSize = 10,
+    DateTime? startDate,
+    DateTime? endDate,
+    int? vardiyaId,
+  }) async {
+    final pagedDtos = await _remoteDataSource.getPaginated(
+      pageNumber: pageNumber,
+      pageSize: pageSize,
+      startDate: startDate,
+      endDate: endDate,
+      vardiyaId: vardiyaId,
+    );
+    return PagedResult<ReworkForm>(
+      items: pagedDtos.items.map((dto) => dto.toEntity()).toList(),
+      totalCount: pagedDtos.totalCount,
+      pageNumber: pagedDtos.pageNumber,
+      pageSize: pagedDtos.pageSize,
+      totalPages: pagedDtos.totalPages,
+      hasNextPage: pagedDtos.hasNextPage,
+      hasPreviousPage: pagedDtos.hasPreviousPage,
+    );
+  }
 
   @override
   Future<List<ReworkForm>> getAll() async {

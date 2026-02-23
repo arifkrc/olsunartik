@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../../core/constants/app_colors.dart';
@@ -185,6 +186,7 @@ class _AddMasterDataDialogState extends ConsumerState<AddMasterDataDialog> {
                   labelText: _getDescriptionLabel(),
                   labelStyle: const TextStyle(color: AppColors.textSecondary),
                   prefixIcon: Icon(widget.category == 'personeller' ? LucideIcons.phone : LucideIcons.fileText, size: 18),
+                  counterStyle: const TextStyle(color: AppColors.textSecondary),
                   filled: true,
                   fillColor: AppColors.background,
                   border: OutlineInputBorder(
@@ -193,9 +195,15 @@ class _AddMasterDataDialogState extends ConsumerState<AddMasterDataDialog> {
                   ),
                   alignLabelWithHint: true,
                 ),
+                maxLength: widget.category == 'personeller' ? 11 : null,
+                keyboardType: widget.category == 'personeller' ? TextInputType.phone : TextInputType.text,
+                inputFormatters: widget.category == 'personeller' ? [FilteringTextInputFormatter.digitsOnly] : null,
                 validator: (value) {
                   if ((widget.category == 'urunler' || widget.category == 'ham-urunler') && (value == null || value.isEmpty)) {
                      return 'Ürün adı gerekli';
+                  }
+                  if (widget.category == 'personeller' && value != null && value.isNotEmpty) {
+                    if (value.length != 11) return 'Telefon 11 haneli olmalıdır';
                   }
                   return null;
                 },
@@ -234,10 +242,13 @@ class _AddMasterDataDialogState extends ConsumerState<AddMasterDataDialog> {
                   controller: _yakinTelefonController,
                   style: const TextStyle(color: AppColors.textMain),
                   keyboardType: TextInputType.phone,
+                  maxLength: 11,
+                  inputFormatters: [FilteringTextInputFormatter.digitsOnly],
                   decoration: InputDecoration(
                     labelText: 'Yakın Telefon No',
                     labelStyle: const TextStyle(color: AppColors.textSecondary),
                     prefixIcon: const Icon(LucideIcons.phoneCall, size: 18),
+                    counterStyle: const TextStyle(color: AppColors.textSecondary),
                     filled: true,
                     fillColor: AppColors.background,
                     border: OutlineInputBorder(
@@ -245,6 +256,12 @@ class _AddMasterDataDialogState extends ConsumerState<AddMasterDataDialog> {
                       borderSide: BorderSide(color: AppColors.border),
                     ),
                   ),
+                  validator: (value) {
+                    if (value != null && value.isNotEmpty && value.length != 11) {
+                      return '11 haneli olmalıdır (05XXXXXXXXX)';
+                    }
+                    return null;
+                  },
                 ),
                 const SizedBox(height: 16),
 

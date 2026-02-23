@@ -5,6 +5,7 @@ import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 
 import '../../../../core/constants/app_colors.dart';
+import '../providers/fire_analiz_providers.dart';
 import 'analysis_provider.dart';
 import 'models.dart';
 
@@ -17,6 +18,17 @@ class AnalysisScreen extends ConsumerStatefulWidget {
 
 class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
   DateTime? _selectedFilterDate;
+
+  @override
+  void initState() {
+    super.initState();
+    Future.microtask(() {
+      final state = ref.read(scrapAnalysisProvider);
+      if (state.dashboardData == null) {
+        ref.read(scrapAnalysisProvider.notifier).fetchDashboardData(DateTime.now());
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -150,7 +162,7 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
               Text(
                 _selectedFilterDate != null
                     ? DateFormat('dd.MM.yyyy').format(_selectedFilterDate!)
-                    : 'Tarih Aralığı Seçiniz',
+                    : 'Tarih Seçiniz',
                 style: const TextStyle(
                   color: AppColors.textMain,
                   fontWeight: FontWeight.w500,
@@ -158,10 +170,10 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
               ),
               const SizedBox(width: 8),
               IconButton(
-                onPressed: () {
-                  // Logic to open date range picker
-                  showDateRangePicker(
+                onPressed: () async {
+                  final picked = await showDatePicker(
                     context: context,
+                    initialDate: _selectedFilterDate ?? DateTime.now(),
                     firstDate: DateTime(2023),
                     lastDate: DateTime.now(),
                     builder: (context, child) {
@@ -178,6 +190,12 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
                       );
                     },
                   );
+                  if (picked != null) {
+                    setState(() {
+                      _selectedFilterDate = picked;
+                    });
+                    ref.read(scrapAnalysisProvider.notifier).fetchDashboardData(picked);
+                  }
                 },
                 icon: const Icon(
                   LucideIcons.chevronDown,
@@ -186,6 +204,42 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
                 ),
               ),
             ],
+          ),
+        ),
+        const SizedBox(width: 16),
+        // Recalculate Button
+        ElevatedButton.icon(
+          onPressed: () async {
+             final dateStr = DateFormat('yyyy-MM-dd').format(_selectedFilterDate ?? DateTime.now());
+             try {
+                // Trigger backend manual recalculation
+                await ref.read(fireAnalizRepositoryProvider).hesapla(dateStr);
+                // Fetch the new updated data
+                await ref.read(scrapAnalysisProvider.notifier).fetchDashboardData(_selectedFilterDate ?? DateTime.now());
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Analiz başarıyla yeniden hesaplandı ve güncellendi.')),
+                  );
+                }
+             } catch (e) {
+                if (context.mounted) {
+                   ScaffoldMessenger.of(context).showSnackBar(
+                     SnackBar(content: Text('Analiz hesaplanırken hata oluştu: $e')),
+                   );
+                }
+             }
+          },
+          icon: const Icon(LucideIcons.refreshCcw, size: 18, color: Colors.white),
+          label: const Text(
+            'Yeniden Hesapla',
+            style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+          ),
+          style: ElevatedButton.styleFrom(
+            backgroundColor: AppColors.primary,
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(12),
+            ),
           ),
         ),
       ],
@@ -250,6 +304,7 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
                   setState(() {
                     _selectedFilterDate = picked;
                   });
+                  ref.read(scrapAnalysisProvider.notifier).fetchDashboardData(picked);
                 }
               },
               icon: const Icon(

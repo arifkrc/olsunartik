@@ -41,6 +41,6 @@ final fireKayitFormsProvider = FutureProvider<List<FireKayitFormu>>((
   ref,
 ) async {
   final useCase = ref.watch(getFireKayitFormsUseCaseProvider);
-  // UseCase call ile çalışıyor, tüm kayıtlar için büyük pageSize
-  return await useCase.call(pageNumber: 1, pageSize: 1000);
+  final result = await useCase.call(pageNumber: 1, pageSize: 1000);
+  return result.items;
 });

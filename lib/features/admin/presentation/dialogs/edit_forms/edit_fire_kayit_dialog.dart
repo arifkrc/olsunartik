@@ -3,9 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../../core/constants/app_colors.dart';
 import '../../../../../core/widgets/forms/sarj_no_picker.dart';
-import '../../../providers/audit_providers.dart';
+import '../../providers/report_edit_providers.dart';
 import '../../../../forms/presentation/providers/fire_kayit_providers.dart';
-import '../../../providers/master_data_provider.dart';
+import '../../providers/master_data_provider.dart';
+import '../../../domain/entities/master_data_item.dart';
 
 class EditFireKayitDialog extends ConsumerStatefulWidget {
   final Map<String, dynamic> data;
@@ -32,7 +33,7 @@ class _EditFireKayitDialogState extends ConsumerState<EditFireKayitDialog> {
       text: widget.data['urunKodu'] ?? widget.data['productCode'] ?? '',
     );
     _quantityController = TextEditingController(
-      text: (widget.data['miktar'] ?? widget.data['quantity'])?.toString() ?? '1',
+      text: (widget.data['adet'] ?? widget.data['miktar'] ?? widget.data['quantity'])?.toString() ?? '1',
     );
     _descriptionController = TextEditingController(
       text: widget.data['aciklama'] ?? widget.data['description'] ?? '',
@@ -97,7 +98,7 @@ class _EditFireKayitDialogState extends ConsumerState<EditFireKayitDialog> {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Fire Kaydı Düzenle',
                           style: TextStyle(
                             color: AppColors.textMain,
@@ -388,14 +389,14 @@ class _EditFireKayitDialogState extends ConsumerState<EditFireKayitDialog> {
         "urunKodu": _productCodeController.text,
         "sarjNo": _batchNo,
         "retKoduIds": [_selectedRejectId],
-        "miktar": int.tryParse(_quantityController.text) ?? 0,
+        "adet": int.tryParse(_quantityController.text) ?? 0,
         "aciklama": _descriptionController.text,
         "islemTarihi": DateTime.now().toIso8601String(),
       };
 
       await ref.read(fireKayitRepositoryProvider).updateForm(id, payload);
       
-      ref.invalidate(auditStateProvider);
+      ref.invalidate(reportListProvider);
 
       if (mounted) {
         Navigator.pop(context);

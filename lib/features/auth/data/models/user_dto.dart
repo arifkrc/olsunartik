@@ -28,7 +28,7 @@ class UserDto extends User {
       'hesapSeviyesi': hesapSeviyesi,
       'personelId': personelId,
       'personelAdi': personelAdi,
-      'kayitTarihi': kayitTarihi.toIso8601String(),
+      'kayitTarihi': kayitTarihi.toUtc().toIso8601String(),
     };
   }
 }

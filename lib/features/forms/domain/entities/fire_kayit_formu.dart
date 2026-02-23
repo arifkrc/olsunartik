@@ -30,6 +30,7 @@ class FireKayitFormu {
   final String? aciklama;
   final String? fotografYolu;
   final int? kullaniciId;
+  final String? kullaniciAdi;
 
   FireKayitFormu({
     required this.id,
@@ -57,5 +58,6 @@ class FireKayitFormu {
     this.aciklama,
     this.fotografYolu,
     this.kullaniciId,
+    this.kullaniciAdi,
   });
 }

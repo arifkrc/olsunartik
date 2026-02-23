@@ -124,6 +124,9 @@ class MasterDataNotifier extends AsyncNotifier<List<MasterDataItem>> {
     try {
       await repository.create(category, payload);
       ref.invalidateSelf();
+      if (category == 'personeller') {
+        ref.invalidate(personnelListProvider);
+      }
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
@@ -139,6 +142,9 @@ class MasterDataNotifier extends AsyncNotifier<List<MasterDataItem>> {
     try {
       await repository.update(category, id, payload);
       ref.invalidateSelf();
+      if (category == 'personeller') {
+        ref.invalidate(personnelListProvider);
+      }
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }
@@ -150,6 +156,9 @@ class MasterDataNotifier extends AsyncNotifier<List<MasterDataItem>> {
     try {
       await repository.delete(category, id);
       ref.invalidateSelf();
+      if (category == 'personeller') {
+        ref.invalidate(personnelListProvider);
+      }
     } catch (e, stack) {
       state = AsyncValue.error(e, stack);
     }

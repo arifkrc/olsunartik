@@ -1,11 +1,15 @@
 import 'dart:io';
+import '../../../../core/models/paged_result.dart';
 import '../entities/fire_kayit_formu.dart';
 import '../../data/models/fire_kayit_formu_dto.dart';
 
 abstract class IFireKayitRepository {
-  Future<List<FireKayitFormu>> getForms({
+  Future<PagedResult<FireKayitFormu>> getForms({
     int pageNumber = 1,
     int pageSize = 10,
+    DateTime? startDate,
+    DateTime? endDate,
+    int? vardiyaId,
   });
   Future<FireKayitFormu> getForm(int id);
   Future<int> createForm(FireKayitRequestDto data);

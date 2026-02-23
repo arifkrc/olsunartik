@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../../core/constants/app_colors.dart';
-import '../../../providers/audit_providers.dart';
+import '../../providers/report_edit_providers.dart';
 import '../../../../forms/presentation/providers/final_kontrol_providers.dart';
 
 class EditFinalControlDialog extends ConsumerStatefulWidget {
@@ -452,7 +452,7 @@ class _EditFinalControlDialogState extends ConsumerState<EditFinalControlDialog>
 
       await ref.read(finalKontrolRepositoryProvider).update(id, payload);
       
-      ref.invalidate(auditStateProvider);
+      ref.invalidate(reportListProvider);
 
       if (mounted) {
         Navigator.pop(context);

@@ -1,3 +1,4 @@
+import '../../../../core/models/paged_result.dart';
 import '../entities/palet_giris_form.dart';
 import '../repositories/i_palet_giris_repository.dart';
 
@@ -6,7 +7,7 @@ class GetPaletGirisFormsUseCase {
 
   GetPaletGirisFormsUseCase(this._repository);
 
-  Future<List<PaletGirisForm>> call() {
-    return _repository.getAll();
+  Future<PagedResult<PaletGirisForm>> call({int pageNumber = 1, int pageSize = 10}) {
+    return _repository.getForms(pageNumber: pageNumber, pageSize: pageSize);
   }
 }

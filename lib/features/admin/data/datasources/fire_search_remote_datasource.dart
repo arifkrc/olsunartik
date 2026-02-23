@@ -24,8 +24,8 @@ class FireSearchRemoteDataSource {
   }) async {
     try {
       final queryParams = <String, dynamic>{
-        'startDate': startDate.toIso8601String(),
-        'endDate': endDate.toIso8601String(),
+        'startDate': startDate.toUtc().toIso8601String(),
+        'endDate': endDate.toUtc().toIso8601String(),
       };
 
       if (productCode != null && productCode.isNotEmpty) {

@@ -8,6 +8,13 @@ import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../core/constants/app_colors.dart';
 import '../scrap_analysis/analysis_provider.dart';
 
+import 'package:intl/intl.dart';
+import '../../../../core/providers/product_providers.dart';
+import '../../data/models/uretim_bilgisi_bulk_dto.dart';
+import '../providers/uretim_bilgisi_providers.dart';
+import '../scrap_analysis/models.dart';
+import '../dialogs/excel_preview_dialog.dart';
+
 class ProductionEntryAdminTab extends ConsumerStatefulWidget {
   const ProductionEntryAdminTab({super.key});
 
@@ -19,6 +26,7 @@ class ProductionEntryAdminTab extends ConsumerStatefulWidget {
 class _ProductionEntryAdminTabState
     extends ConsumerState<ProductionEntryAdminTab> {
   final TextEditingController _productionController = TextEditingController();
+  bool _isUploading = false;
 
   @override
   void dispose() {
@@ -43,15 +51,186 @@ class _ProductionEntryAdminTabState
         }
 
         if (bytes != null) {
-          ref.read(scrapAnalysisProvider.notifier).parseExcel(bytes);
-          _showSuccess('Excel dosyası başarıyla yüklendi ve işlendi.');
+          setState(() {
+            _isUploading = true;
+          });
+
+          // 1. Parse Excel
+          final List<ScrapUploadItem> parsedItems =
+              await ref.read(scrapAnalysisProvider.notifier).parseExcel(bytes);
+
+          if (parsedItems.isEmpty) {
+            _showError('Excel dosyasında geçerli veri bulunamadı.');
+            setState(() {
+              _isUploading = false;
+            });
+            return;
+          }
+
+          // 2. Load DB Products
+          final allProductsAsync = await ref.read(allProductsProvider.future);
+          final productMap = {for (var p in allProductsAsync) p.urunKodu: p.id};
+
+          // 3. Validate and Aggregate Production Items
+        final List<String> missingCodes = [];
+        final Map<String, UretimBilgisiBulkItemDto> bulkItemsMap = {};
+        final Set<DateTime> uniqueDates = {};
+        
+        DateTime? lastValidDate;
+
+        for (var item in parsedItems) {
+          if (!productMap.containsKey(item.productCode)) {
+            if (!missingCodes.contains(item.productCode)) {
+              missingCodes.add(item.productCode);
+            }
+          } else {
+            final urunId = productMap[item.productCode]!;
+            
+            // Priority: Use Excel date (Column A). Forward Fill: Use last seen valid date. Fallback: today.
+            if (item.date != null) {
+              lastValidDate = item.date;
+            }
+            
+            final itemDate = lastValidDate ?? DateTime.now();
+            final tarih = DateFormat('yyyy-MM-dd').format(itemDate);
+            uniqueDates.add(DateTime(itemDate.year, itemDate.month, itemDate.day));
+
+            final fabrika = item.factory.isEmpty ? "BELIRTILMEDI" : item.factory;
+            
+            final key = "$urunId-$tarih-$fabrika";
+
+            if (bulkItemsMap.containsKey(key)) {
+              final existing = bulkItemsMap[key]!;
+              bulkItemsMap[key] = existing.copyWith(
+                uretimAdeti: existing.uretimAdeti + item.quantity,
+                delikAdeti: (existing.delikAdeti ?? 0) + item.holeQty,
+              );
+            } else {
+              bulkItemsMap[key] = UretimBilgisiBulkItemDto(
+                uretimTarihi: tarih,
+                urunId: urunId,
+                dokumhaneAdi: fabrika,
+                uretimAdeti: item.quantity,
+                delikAdeti: item.holeQty,
+              );
+            }
+          }
+        }
+
+        final bulkItems = bulkItemsMap.values.toList();
+
+        if (missingCodes.isNotEmpty) {
+          setState(() {
+            _isUploading = false;
+          });
+          _showMissingProductsDialog(missingCodes);
+          return;
+        }
+
+        // 4. All Valid -> Show Preview Dialog
+        if (!mounted) return;
+        final bool? confirmed = await showDialog<bool>(
+          context: context,
+          builder: (context) => ExcelPreviewDialog(items: bulkItems),
+        );
+
+        if (confirmed != true) {
+          setState(() {
+            _isUploading = false;
+          });
+          return;
+        }
+
+        // 5. All Valid & Confirmed -> Submit to API
+        try {
+          await ref.read(bulkInsertUretimBilgisiUseCaseProvider).call(
+                UretimBilgisiBulkRequestDto(kayitlar: bulkItems),
+              );
+
+          // 6. Fetch updated Dashboard Data from Backend (Force Recalculation for all updated dates)
+          for (var date in uniqueDates) {
+            await ref.read(scrapAnalysisProvider.notifier).fetchDashboardData(date, forceCalculate: true);
+          }
+
+            _showSuccess('Excel verileri başarıyla sisteme kaydedildi ve analiz güncellendi.');
+          } catch (e) {
+            _showError('Veriler kaydedilirken hata oluştu: $e');
+          }
+
+          setState(() {
+            _isUploading = false;
+          });
+
         } else {
           _showError('Dosya okunamadı: İçerik boş.');
         }
       }
     } catch (e) {
-      _showError('Dosya seçimi hatası: $e');
+      setState(() {
+        _isUploading = false;
+      });
+      _showError('Dosya işleme hatası: $e');
     }
+  }
+
+  void _showMissingProductsDialog(List<String> missingCodes) {
+    if (!mounted) return;
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Row(
+          children: [
+            Icon(LucideIcons.alertTriangle, color: AppColors.error),
+            SizedBox(width: 8),
+            Text('Kayıt Bulunamadı'),
+          ],
+        ),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Aşağıdaki ürün kodları sistemde (veri tabanında) bulunamadı. Lütfen ürünlerin sistemde olduğundan emin olup tekrar deneyin:',
+              style: TextStyle(color: AppColors.textSecondary),
+            ),
+            const SizedBox(height: 12),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 200),
+              width: double.maxFinite,
+              child: SingleChildScrollView(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (var code in missingCodes)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 4),
+                        child: Row(
+                          children: [
+                            const Icon(LucideIcons.xCircle, color: AppColors.error, size: 16),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                code,
+                                style: const TextStyle(fontWeight: FontWeight.bold),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Kapat', style: TextStyle(color: AppColors.textMain)),
+          ),
+        ],
+      ),
+    );
   }
 
   void _showError(String message) {
@@ -166,9 +345,15 @@ class _ProductionEntryAdminTabState
                 const SizedBox(height: 24),
                 Center(
                   child: ElevatedButton.icon(
-                    onPressed: _pickExcelFile,
-                    icon: const Icon(LucideIcons.upload, size: 20),
-                    label: const Text('Excel Dosyası Seç ve Yükle'),
+                    onPressed: _isUploading ? null : _pickExcelFile,
+                    icon: _isUploading 
+                        ? const SizedBox(
+                            width: 20, 
+                            height: 20, 
+                            child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)
+                          ) 
+                        : const Icon(LucideIcons.upload, size: 20),
+                    label: Text(_isUploading ? 'Yükleniyor...' : 'Excel Dosyası Seç ve Yükle'),
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.green,
                       foregroundColor: Colors.white,

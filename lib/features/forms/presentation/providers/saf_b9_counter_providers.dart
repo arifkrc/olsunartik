@@ -4,6 +4,7 @@ import '../../data/datasources/saf_b9_counter_remote_datasource.dart';
 import '../../data/repositories/saf_b9_counter_repository_impl.dart';
 import '../../domain/repositories/i_saf_b9_counter_repository.dart';
 import '../../domain/usecases/submit_saf_b9_counter_entry_usecase.dart';
+import '../../data/models/saf_b9_counter_entry_dto.dart';
 
 final safB9CounterDataSourceProvider = Provider<SafB9CounterRemoteDataSource>((
   ref,
@@ -15,6 +16,12 @@ final safB9CounterDataSourceProvider = Provider<SafB9CounterRemoteDataSource>((
 final safB9CounterRepositoryProvider = Provider<ISafB9CounterRepository>((ref) {
   final dataSource = ref.watch(safB9CounterDataSourceProvider);
   return SafB9CounterRepositoryImpl(dataSource);
+});
+
+final safB9CounterListProvider = FutureProvider<List<SAFBResponseDto>>((ref) async {
+  final repository = ref.watch(safB9CounterRepositoryProvider);
+  final result = await repository.getForms(pageNumber: 1, pageSize: 1000);
+  return result.items;
 });
 
 final submitSafB9CounterEntryUseCaseProvider =

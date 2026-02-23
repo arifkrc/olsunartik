@@ -1,3 +1,4 @@
+import '../../../../core/models/paged_result.dart';
 import '../entities/rework_form.dart';
 import '../repositories/i_rework_repository.dart';
 
@@ -6,7 +7,7 @@ class GetReworkFormsUseCase {
 
   GetReworkFormsUseCase(this._repository);
 
-  Future<List<ReworkForm>> call() {
-    return _repository.getAll();
+  Future<PagedResult<ReworkForm>> call({int pageNumber = 1, int pageSize = 10}) {
+    return _repository.getForms(pageNumber: pageNumber, pageSize: pageSize);
   }
 }

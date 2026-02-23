@@ -1,3 +1,4 @@
+import '../../../../core/models/paged_result.dart';
 import 'package:dio/dio.dart';
 import '../models/palet_giris_form_dto.dart';
 
@@ -6,11 +7,34 @@ class PaletGirisRemoteDataSource {
 
   PaletGirisRemoteDataSource(this._dio);
 
+  Future<PagedResult<PaletGirisFormDto>> getPaginated({
+    int pageNumber = 1,
+    int pageSize = 10,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    final response = await _dio.get(
+      'paletgiris/paginated',
+      queryParameters: {
+        'pageNumber': pageNumber,
+        'pageSize': pageSize,
+        if (startDate != null) 'startDate': startDate.toUtc().toIso8601String(),
+        if (endDate != null) 'endDate': endDate.toUtc().toIso8601String(),
+      },
+    );
+    if (response.data['success'] == true) {
+      return PagedResult<PaletGirisFormDto>.fromJson(
+        response.data['data'],
+        (j) => PaletGirisFormDto.fromJson(j),
+      );
+    }
+    throw Exception(response.data['message'] ?? 'Veriler alınamadı');
+  }
+
   Future<List<PaletGirisFormDto>> getAll() async {
     final response = await _dio.get('palet-giris');
-    final List<dynamic> data = response.data['data'] as List<dynamic>? ?? [];
-    return data
-        .map((json) => PaletGirisFormDto.fromJson(json as Map<String, dynamic>))
+    return (response.data['data'] as List)
+        .map((j) => PaletGirisFormDto.fromJson(j))
         .toList();
   }
 

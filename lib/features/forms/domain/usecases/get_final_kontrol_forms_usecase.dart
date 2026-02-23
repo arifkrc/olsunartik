@@ -1,3 +1,4 @@
+import '../../../../core/models/paged_result.dart';
 import '../entities/final_kontrol_form.dart';
 import '../repositories/i_final_kontrol_repository.dart';
 
@@ -6,7 +7,7 @@ class GetFinalKontrolFormsUseCase {
 
   GetFinalKontrolFormsUseCase(this._repository);
 
-  Future<List<FinalKontrolForm>> call() {
-    return _repository.getAll();
+  Future<PagedResult<FinalKontrolRecord>> call({int pageNumber = 1, int pageSize = 10}) {
+    return _repository.getForms(pageNumber: pageNumber, pageSize: pageSize);
   }
 }

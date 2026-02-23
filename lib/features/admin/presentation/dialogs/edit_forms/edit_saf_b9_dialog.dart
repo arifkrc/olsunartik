@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../../core/constants/app_colors.dart';
-import '../../../providers/audit_providers.dart';
+import '../../providers/report_edit_providers.dart';
 import '../../../../forms/presentation/providers/saf_b9_counter_providers.dart';
 
 class EditSafB9Dialog extends ConsumerStatefulWidget {
@@ -521,8 +521,8 @@ class _EditSafB9DialogState extends ConsumerState<EditSafB9Dialog> {
       final payload = {
         "id": id,
         "tezgahNo": _selectedTezgah,
-        "duzce": int.tryParse(_duzceController.text) ?? 0,
-        "almanya": int.tryParse(_almanyaController.text) ?? 0,
+        "duzceSayac": int.tryParse(_duzceController.text) ?? 0,
+        "almanyaSayac": int.tryParse(_almanyaController.text) ?? 0,
         "retAdet": int.tryParse(_hurdaController.text) ?? 0,
         "reworkAdet": int.tryParse(_reworkController.text) ?? 0,
         "aciklama": _descriptionController.text,
@@ -531,7 +531,7 @@ class _EditSafB9DialogState extends ConsumerState<EditSafB9Dialog> {
 
       await ref.read(safB9CounterRepositoryProvider).update(id, payload);
       
-      ref.invalidate(auditStateProvider);
+      ref.invalidate(reportListProvider);
 
       if (mounted) {
         Navigator.pop(context);

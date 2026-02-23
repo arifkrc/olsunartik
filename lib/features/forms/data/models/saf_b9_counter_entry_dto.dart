@@ -49,3 +49,51 @@ class SAFBRetDetayDto {
     };
   }
 }
+class SAFBResponseDto {
+  final int id;
+  final DateTime islemTarihi;
+  final int? vardiyaId;
+  final String? vardiyaAdi;
+  final int urunId;
+  final String? urunKodu;
+  final int duzceSayac;
+  final int almanyaSayac;
+  final int retAdet;
+  final String? aciklama;
+  final int? kullaniciId;
+  final String? kullaniciAdi;
+
+  SAFBResponseDto({
+    required this.id,
+    required this.islemTarihi,
+    this.vardiyaId,
+    this.vardiyaAdi,
+    required this.urunId,
+    this.urunKodu,
+    required this.duzceSayac,
+    required this.almanyaSayac,
+    required this.retAdet,
+    this.aciklama,
+    this.kullaniciId,
+    this.kullaniciAdi,
+  });
+
+  factory SAFBResponseDto.fromJson(Map<String, dynamic> json) {
+    return SAFBResponseDto(
+      id: json['id'] as int? ?? 0,
+      islemTarihi: json['islemTarihi'] != null 
+          ? DateTime.parse(json['islemTarihi']) 
+          : DateTime.now(),
+      vardiyaId: json['vardiyaId'] as int?,
+      vardiyaAdi: json['vardiyaAdi'] as String?,
+      urunId: json['urunId'] as int? ?? 0,
+      urunKodu: json['urunKodu'] as String?,
+      duzceSayac: json['duzceSayac'] as int? ?? 0,
+      almanyaSayac: json['almanyaSayac'] as int? ?? 0,
+      retAdet: json['retAdet'] as int? ?? 0,
+      aciklama: json['aciklama'] as String?,
+      kullaniciId: json['kullaniciId'] as int?,
+      kullaniciAdi: json['kullaniciAdi'] as String?,
+    );
+  }
+}

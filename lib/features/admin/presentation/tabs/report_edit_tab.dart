@@ -19,8 +19,22 @@ import '../dialogs/edit_forms/edit_giris_kalite_dialog.dart';
 import '../dialogs/edit_forms/edit_palet_giris_dialog.dart';
 import '../dialogs/edit_forms/edit_saf_b9_dialog.dart';
 import '../../../forms/presentation/palet_giris_kalite_screen.dart';
-import '../../domain/entities/audit_action.dart';
-import '../providers/audit_providers.dart';
+import '../providers/report_edit_providers.dart';
+import '../../../../core/models/paged_result.dart';
+import '../../../forms/domain/entities/quality_approval_form.dart';
+import '../../../forms/domain/entities/final_kontrol_form.dart';
+import '../../../forms/domain/entities/fire_kayit_formu.dart';
+import '../../../forms/domain/entities/rework_form.dart';
+import '../../../forms/domain/entities/giris_kalite_kontrol_form.dart';
+import '../../../forms/domain/entities/palet_giris_form.dart';
+import '../../../forms/data/models/saf_b9_counter_entry_dto.dart';
+import '../../../forms/presentation/providers/quality_approval_providers.dart';
+import '../../../forms/presentation/providers/final_kontrol_providers.dart';
+import '../../../forms/presentation/providers/fire_kayit_providers.dart';
+import '../../../forms/presentation/providers/rework_providers.dart';
+import '../../../forms/presentation/providers/giris_kalite_kontrol_providers.dart';
+import '../../../forms/presentation/providers/palet_giris_providers.dart';
+import '../../../forms/presentation/providers/saf_b9_counter_providers.dart';
 
 class ReportEditTab extends ConsumerStatefulWidget {
   const ReportEditTab({super.key});
@@ -30,10 +44,6 @@ class ReportEditTab extends ConsumerStatefulWidget {
 }
 
 class _ReportEditTabState extends ConsumerState<ReportEditTab> {
-  int _selectedFormIndex = 0;
-  DateTime _selectedDate = DateTime.now();
-  String? _selectedShift; // null = 'Tümü', 'Gündüz', 'Gece'
-
   final List<Map<String, dynamic>> _forms = [
     {
       'title': 'Kalite Onay',
@@ -81,12 +91,9 @@ class _ReportEditTabState extends ConsumerState<ReportEditTab> {
 
   @override
   Widget build(BuildContext context) {
-    /* 
-       Updated Layout:
-       1. Header Row: Title + "Create History Record" Button (Top Right)
-       2. Form Selection List (Horizontal)
-       3. History List (Vertical)
-    */
+    final filter = ref.watch(reportFilterProvider);
+    final selectedIndex = _forms.indexWhere((f) => f['type'] == filter.type);
+
     return Column(
       children: [
         // 1. Header with Title and Create Button
@@ -106,7 +113,7 @@ class _ReportEditTabState extends ConsumerState<ReportEditTab> {
               Tooltip(
                 message: 'Geçmişe Yönelik Kayıt Oluştur',
                 child: ElevatedButton.icon(
-                  onPressed: () => _navigateToForm(_selectedFormIndex),
+                  onPressed: () => _navigateToForm(selectedIndex),
                   icon: const Icon(
                     LucideIcons.history,
                     size: 18,
@@ -145,11 +152,15 @@ class _ReportEditTabState extends ConsumerState<ReportEditTab> {
             itemCount: _forms.length,
             itemBuilder: (context, index) {
               final form = _forms[index];
-              final isSelected = _selectedFormIndex == index;
+              final isSelected = selectedIndex == index;
               final color = form['color'] as Color;
 
               return GestureDetector(
-                onTap: () => setState(() => _selectedFormIndex = index),
+                onTap: () {
+                  ref.read(reportFilterProvider.notifier).update(
+                        (s) => s.copyWith(type: form['type'], pageNumber: 1),
+                      );
+                },
                 child: Container(
                   width: 90,
                   margin: const EdgeInsets.only(right: 12),
@@ -202,11 +213,71 @@ class _ReportEditTabState extends ConsumerState<ReportEditTab> {
 
         // 4. History List (Vertical)
         Expanded(child: _buildHistoryList()),
+        
+        // 5. Pagination Controls
+        _buildPaginationControls(),
       ],
     );
   }
 
+  Widget _buildPaginationControls() {
+    final listAsync = ref.watch(reportListProvider);
+
+    return listAsync.maybeWhen(
+      data: (paged) {
+        if (paged.totalPages <= 1) return const SizedBox.shrink();
+
+        return Container(
+          padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
+          decoration: BoxDecoration(
+            color: AppColors.surface,
+            border: const Border(top: BorderSide(color: AppColors.glassBorder)),
+          ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                'Toplam ${paged.totalCount} kayıt',
+                style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+              ),
+              Row(
+                children: [
+                  IconButton(
+                    icon: const Icon(LucideIcons.chevronLeft),
+                    onPressed: paged.hasPreviousPage
+                        ? () => ref.read(reportFilterProvider.notifier).update(
+                              (s) => s.copyWith(pageNumber: s.pageNumber - 1),
+                            )
+                        : null,
+                  ),
+                  Text(
+                    '${paged.pageNumber} / ${paged.totalPages}',
+                    style: const TextStyle(
+                      color: AppColors.textMain,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  IconButton(
+                    icon: const Icon(LucideIcons.chevronRight),
+                    onPressed: paged.hasNextPage
+                        ? () => ref.read(reportFilterProvider.notifier).update(
+                              (s) => s.copyWith(pageNumber: s.pageNumber + 1),
+                            )
+                        : null,
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      },
+      orElse: () => const SizedBox.shrink(),
+    );
+  }
+
   Widget _buildFilterBar() {
+    final filter = ref.watch(reportFilterProvider);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       color: AppColors.surface.withValues(alpha: 0.3),
@@ -218,7 +289,7 @@ class _ReportEditTabState extends ConsumerState<ReportEditTab> {
               onTap: () async {
                 final date = await showDatePicker(
                   context: context,
-                  initialDate: _selectedDate,
+                  initialDate: filter.date,
                   firstDate: DateTime(2020),
                   lastDate: DateTime.now().add(const Duration(days: 365)),
                   builder: (context, child) {
@@ -234,7 +305,9 @@ class _ReportEditTabState extends ConsumerState<ReportEditTab> {
                   },
                 );
                 if (date != null) {
-                  setState(() => _selectedDate = date);
+                  ref.read(reportFilterProvider.notifier).update(
+                    (s) => s.copyWith(date: date, pageNumber: 1),
+                  );
                 }
               },
               child: Container(
@@ -256,7 +329,7 @@ class _ReportEditTabState extends ConsumerState<ReportEditTab> {
                     ),
                     const SizedBox(width: 8),
                     Text(
-                      DateFormat('dd.MM.yyyy').format(_selectedDate),
+                      DateFormat('dd.MM.yyyy').format(filter.date),
                       style: TextStyle(
                         color: AppColors.textMain,
                         fontSize: 13,
@@ -279,8 +352,8 @@ class _ReportEditTabState extends ConsumerState<ReportEditTab> {
                 border: Border.all(color: AppColors.border),
               ),
               child: DropdownButtonHideUnderline(
-                child: DropdownButton<String?>(
-                  value: _selectedShift,
+                child: DropdownButton<int?>(
+                  value: filter.vardiyaId,
                   isExpanded: true,
                   dropdownColor: AppColors.surfaceLight,
                   icon: Icon(
@@ -309,7 +382,7 @@ class _ReportEditTabState extends ConsumerState<ReportEditTab> {
                       ),
                     ),
                     DropdownMenuItem(
-                      value: '08:00 - 16:00',
+                      value: 1,
                       child: Row(
                         children: [
                           Icon(LucideIcons.sun, color: Colors.orange, size: 16),
@@ -319,7 +392,7 @@ class _ReportEditTabState extends ConsumerState<ReportEditTab> {
                       ),
                     ),
                     DropdownMenuItem(
-                      value: '16:00 - 00:00',
+                      value: 2,
                       child: Row(
                         children: [
                           Icon(
@@ -333,7 +406,7 @@ class _ReportEditTabState extends ConsumerState<ReportEditTab> {
                       ),
                     ),
                     DropdownMenuItem(
-                      value: '00:00 - 08:00',
+                      value: 3,
                       child: Row(
                         children: [
                           Icon(
@@ -348,7 +421,9 @@ class _ReportEditTabState extends ConsumerState<ReportEditTab> {
                     ),
                   ],
                   onChanged: (value) {
-                    setState(() => _selectedShift = value);
+                    ref.read(reportFilterProvider.notifier).update(
+                      (s) => s.copyWith(vardiyaId: value, pageNumber: 1),
+                    );
                   },
                 ),
               ),
@@ -360,46 +435,16 @@ class _ReportEditTabState extends ConsumerState<ReportEditTab> {
   }
 
   Widget _buildHistoryList() {
-    final auditState = ref.watch(auditStateProvider);
-    final currentForm = _forms[_selectedFormIndex];
-    final formType = currentForm['type'] as String;
+    final listAsync = ref.watch(reportListProvider);
+    final filter = ref.watch(reportFilterProvider);
+    final currentForm = _forms.firstWhere((f) => f['type'] == filter.type);
     final color = currentForm['color'] as Color;
 
-    return auditState.when(
+    return listAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, s) => Center(child: Text('Hata: $e')),
-      data: (allActions) {
-        // Filter actions:
-        // 1. Matches varlikTipi
-        // 2. Matches selectedDate
-        // 3. Matches selectedShift (if not null)
-        final filteredActions = allActions.where((action) {
-          // Type filter
-          if (action.varlikTipi != formType) return false;
-
-          // Date filter (action.islemTarihi or similar field if available, 
-          // but AuditAction might have its own timestamp)
-          // Let's assume action.islemTarihi matches the form's creation date
-          final actionDate = action.islemTarihi;
-          final isSameDay = actionDate.year == _selectedDate.year &&
-                            actionDate.month == _selectedDate.month &&
-                            actionDate.day == _selectedDate.day;
-          if (!isSameDay) return false;
-
-          // Shift filter (this would require 'vardiya' to be in the JSON payload or a separate field)
-          if (_selectedShift != null) {
-            try {
-              final data = jsonDecode(action.yeniDeger) as Map<String, dynamic>;
-              if (data['vardiya'] != _selectedShift) return false;
-            } catch (_) {
-              return false;
-            }
-          }
-
-          return true;
-        }).toList();
-
-        if (filteredActions.isEmpty) {
+      data: (paged) {
+        if (paged.items.isEmpty) {
           return Center(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -421,15 +466,11 @@ class _ReportEditTabState extends ConsumerState<ReportEditTab> {
 
         return ListView.builder(
           padding: const EdgeInsets.all(16),
-          itemCount: filteredActions.length,
+          itemCount: paged.items.length,
           itemBuilder: (context, index) {
-            final action = filteredActions[index];
-            Map<String, dynamic> data = {};
-            try {
-              data = jsonDecode(action.yeniDeger) as Map<String, dynamic>;
-            } catch (e) {
-              return Text('Veri okuma hatası: $e');
-            }
+            final item = paged.items[index];
+            final int? recordId = _getRecordId(item);
+            final DateTime? timestamp = _getTimestamp(item);
 
             return Container(
               margin: const EdgeInsets.only(bottom: 12),
@@ -468,30 +509,32 @@ class _ReportEditTabState extends ConsumerState<ReportEditTab> {
                                 fontSize: 14,
                               ),
                             ),
-                            const SizedBox(width: 8),
-                            Container(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
-                              ),
-                              decoration: BoxDecoration(
-                                color: AppColors.surfaceLight,
-                                borderRadius: BorderRadius.circular(4),
-                                border: Border.all(color: AppColors.glassBorder),
-                              ),
-                              child: Text(
-                                DateFormat('HH:mm').format(action.islemTarihi),
-                                style: const TextStyle(
-                                  color: AppColors.textSecondary,
-                                  fontSize: 10,
+                            if (timestamp != null) ...[
+                              const SizedBox(width: 8),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: AppColors.surfaceLight,
+                                  borderRadius: BorderRadius.circular(4),
+                                  border: Border.all(color: AppColors.glassBorder),
+                                ),
+                                child: Text(
+                                  DateFormat('HH:mm').format(timestamp),
+                                  style: const TextStyle(
+                                    color: AppColors.textSecondary,
+                                    fontSize: 10,
+                                  ),
                                 ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          _getSummaryText(formType, data),
+                          _getSummaryText(filter.type, item),
                           style: const TextStyle(
                             color: AppColors.textSecondary,
                             fontSize: 12,
@@ -499,14 +542,7 @@ class _ReportEditTabState extends ConsumerState<ReportEditTab> {
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          'Yapan: ${action.kullaniciAdi}',
-                          style: TextStyle(
-                            color: AppColors.textSecondary.withValues(alpha: 0.7),
-                            fontSize: 11,
-                          ),
-                        ),
+                        _buildSubInfo(filter.type, item),
                       ],
                     ),
                   ),
@@ -516,7 +552,7 @@ class _ReportEditTabState extends ConsumerState<ReportEditTab> {
                       IconButton(
                         icon: const Icon(LucideIcons.edit, size: 18, color: AppColors.primary),
                         tooltip: 'Düzenle',
-                        onPressed: () => _openEditDialog(formType, data, action.varlikId),
+                        onPressed: () => _openEditDialog(filter.type, item, recordId),
                         style: IconButton.styleFrom(
                           backgroundColor: AppColors.primary.withValues(alpha: 0.1),
                           padding: const EdgeInsets.all(8),
@@ -526,7 +562,7 @@ class _ReportEditTabState extends ConsumerState<ReportEditTab> {
                       IconButton(
                         icon: const Icon(LucideIcons.trash2, size: 18, color: AppColors.error),
                         tooltip: 'Sil',
-                        onPressed: () => _showDeleteDialog(formType, data, action.varlikId),
+                        onPressed: () => _showDeleteDialog(filter.type, item, recordId),
                         style: IconButton.styleFrom(
                           backgroundColor: AppColors.error.withValues(alpha: 0.1),
                           padding: const EdgeInsets.all(8),
@@ -543,39 +579,80 @@ class _ReportEditTabState extends ConsumerState<ReportEditTab> {
     );
   }
 
-  String _getSummaryText(String type, Map<String, dynamic> data) {
+  int? _getRecordId(dynamic item) {
+    if (item is QualityApprovalForm) return item.id;
+    if (item is FinalKontrolRecord) return item.id;
+    if (item is FireKayitFormu) return item.id;
+    if (item is ReworkForm) return item.id; // Check if ReworkForm has id
+    if (item is GirisKaliteKontrolForm) return item.id;
+    if (item is PaletGirisForm) return item.id;
+    if (item is SAFBResponseDto) return item.id;
+    return null;
+  }
+
+  DateTime? _getTimestamp(dynamic item) {
+    if (item is QualityApprovalForm) return item.islemTarihi;
+    if (item is FinalKontrolRecord) return item.islemTarihi;
+    if (item is FireKayitFormu) return item.islemTarihi;
+    if (item is ReworkForm) return item.kayitTarihi; // ReworkForm has kayitTarihi
+    if (item is GirisKaliteKontrolForm) return item.kayitTarihi;
+    if (item is PaletGirisForm) return item.kayitTarihi;
+    if (item is SAFBResponseDto) return item.islemTarihi;
+    return null;
+  }
+
+  Widget _buildSubInfo(String type, dynamic item) {
+    String? user;
+    if (item is FinalKontrolRecord) user = item.kullaniciAdi;
+    if (item is FireKayitFormu) user = item.kullaniciAdi;
+    if (item is SAFBResponseDto) user = item.kullaniciAdi;
+
+    if (user == null) return const SizedBox.shrink();
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 2),
+      child: Text(
+        'Yapan: $user',
+        style: TextStyle(
+          color: AppColors.textSecondary.withValues(alpha: 0.7),
+          fontSize: 11,
+        ),
+      ),
+    );
+  }
+
+  String _getSummaryText(String type, dynamic item) {
     try {
-      switch (type) {
-        case 'KaliteOnay':
-          final decision = data['isUygun'] == true ? 'Kabul' : 'Ret';
-          return '${data['urunKodu'] ?? '-'} | ${data['adet'] ?? 0} Adet - $decision';
-        case 'FinalKontrol':
-          final p = data['paketAdet'] ?? data['toplamAdet'] ?? 0;
-          final r = data['retAdet'] ?? data['toplamRed'] ?? 0;
-          return '${data['urunKodu'] ?? '-'} | Paket: $p | Red: $r';
-        case 'FireKayitFormu':
-          return '${data['urunKodu'] ?? '-'} | ${data['miktar'] ?? 0} Adet - ID: ${data['retKoduId'] ?? '-'}';
-        case 'Rework':
-          return '${data['urunKodu'] ?? '-'} | ${data['adet'] ?? 0} Adet - Sonuç: ${data['sonuc'] ?? '-'}';
-        case 'GirisKalite':
-          final m = data['miktar'] ?? 0;
-          final status = data['kabul'] == true ? 'Kabul' : 'Ret';
-          return '${data['urunKodu'] ?? '-'} | $m Adet - $status';
-        case 'PaletGiris':
-          return '${data['tedarikciAdi'] ?? '-'} | İrsaliye: ${data['irsaliyeNo'] ?? '-'} | Ürün: ${data['urunAdi'] ?? '-'}';
-        case 'SafB9':
-          final d = data['duzce'] ?? data['duzceSayac'] ?? 0;
-          final a = data['almanya'] ?? data['almanyaSayac'] ?? 0;
-          return '${data['urunKodu'] ?? '-'} | D: $d | A: $a | Hurda: ${data['retAdet'] ?? 0}';
-        default:
-          return 'Veri detayı görüntülenemiyor';
+      if (item is QualityApprovalForm) {
+        final decision = item.isUygun ? 'Kabul' : 'Ret';
+        return '${item.urunKodu} | ${item.adet} Adet - $decision';
       }
+      if (item is FinalKontrolRecord) {
+        return '${item.urunKodu ?? '-'} | Paket: ${item.paketAdet} | Red: ${item.retAdet}';
+      }
+      if (item is FireKayitFormu) {
+        return '${item.urunKodu} | ${item.adet} Adet - ${item.aciklama ?? '-'}';
+      }
+      if (item is ReworkForm) {
+        return '${item.urunKodu ?? '-'} | ${item.adet} Adet - Sonuç: ${item.sonuc}';
+      }
+      if (item is GirisKaliteKontrolForm) {
+        final status = item.kabul ? 'Kabul' : 'Ret';
+        return '${item.urunKodu} | ${item.miktar} ${item.birim} - $status';
+      }
+      if (item is PaletGirisForm) {
+        return '${item.tedarikciAdi} | İrsaliye: ${item.irsaliyeNo} | Ürün: ${item.urunAdi}';
+      }
+      if (item is SAFBResponseDto) {
+        return '${item.urunKodu ?? '-'} | D: ${item.duzceSayac} | A: ${item.almanyaSayac} | Hurda: ${item.retAdet}';
+      }
+      return 'Veri detayı görüntülenemiyor';
     } catch (_) {
       return 'Veri formatı uyumsuz';
     }
   }
 
-  void _showDeleteDialog(String type, Map<String, dynamic> data, int? id) {
+  void _showDeleteDialog(String type, dynamic item, int? id) {
     if (id == null) return;
     showDialog(
       context: context,
@@ -608,7 +685,7 @@ class _ReportEditTabState extends ConsumerState<ReportEditTab> {
                 break;
             }
 
-            ref.invalidate(auditStateProvider);
+            ref.invalidate(reportListProvider);
 
             if (mounted) {
               ScaffoldMessenger.of(context).showSnackBar(
@@ -633,17 +710,16 @@ class _ReportEditTabState extends ConsumerState<ReportEditTab> {
     );
   }
 
-  void _openEditDialog(String type, Map<String, dynamic> data, int? id) {
+  void _openEditDialog(String type, dynamic item, int? id) {
     if (id == null) return;
     
-    // Ensure the data map has the 'id' for the dialogs to use
-    final editData = Map<String, dynamic>.from(data);
+    final editData = _entityToMap(type, item);
     editData['id'] = id;
 
     Widget? dialog;
     switch (type) {
       case 'KaliteOnay':
-        dialog = EditQualityApprovalDialog(data: editData); // Needs update to hit PUT
+        dialog = EditQualityApprovalDialog(data: editData); 
         break;
       case 'FinalKontrol':
         dialog = EditFinalControlDialog(data: editData);
@@ -670,6 +746,98 @@ class _ReportEditTabState extends ConsumerState<ReportEditTab> {
     }
   }
 
+  Map<String, dynamic> _entityToMap(String type, dynamic item) {
+    if (item is QualityApprovalForm) {
+      return {
+        'id': item.id,
+        'urunId': item.urunId,
+        'urunKodu': item.urunKodu,
+        'urunAdi': item.urunAdi,
+        'urunTuru': item.urunTuru,
+        'adet': item.adet,
+        'isUygun': item.isUygun,
+        'retKoduId': item.retKoduId,
+        'aciklama': item.aciklama,
+        'islemTarihi': item.islemTarihi.toIso8601String(),
+      };
+    }
+    if (item is FinalKontrolRecord) {
+      return {
+        'id': item.id,
+        'urunId': item.urunId,
+        'urunKodu': item.urunKodu,
+        'musteriAdi': item.musteriAdi,
+        'paletNo': item.paletNo,
+        'paketAdet': item.paketAdet,
+        'retAdet': item.retAdet,
+        'reworkAdet': item.reworkAdet,
+        'aciklama': item.aciklama,
+        'islemTarihi': item.islemTarihi.toIso8601String(),
+        'izlenebilirlikBarkod': item.paletIzlenebilirlikNo,
+      };
+    }
+    if (item is FireKayitFormu) {
+      return {
+        'id': item.id,
+        'urunId': item.urunId,
+        'urunKodu': item.urunKodu,
+        'adet': item.adet,
+        'retKoduIds': item.retKoduIds,
+        'aciklama': item.aciklama,
+        'islemTarihi': item.islemTarihi.toIso8601String(),
+        'materialDurumu': item.malzemeDurumu,
+      };
+    }
+    if (item is ReworkForm) {
+      return {
+        'id': item.id,
+        'urunId': item.urunId,
+        'urunKodu': item.urunKodu,
+        'adet': item.adet,
+        'retKoduId': item.retKoduId,
+        'sarjNo': item.sarjNo,
+        'sonuc': item.sonuc,
+        'aciklama': item.aciklama,
+        'kayitTarihi': item.kayitTarihi?.toIso8601String(),
+      };
+    }
+    if (item is GirisKaliteKontrolForm) {
+      return {
+        'id': item.id,
+        'tedarikci': item.tedarikci,
+        'urunKodu': item.urunKodu,
+        'lotNo': item.lotNo,
+        'miktar': item.miktar,
+        'kabul': item.kabul ? 'Kabul' : 'Red', 
+        'aciklama': item.aciklama,
+      };
+    }
+    if (item is PaletGirisForm) {
+      return {
+        'id': item.id,
+        'tedarikciAdi': item.tedarikciAdi,
+        'irsaliyeNo': item.irsaliyeNo,
+        'urunAdi': item.urunAdi,
+        'nemOlcumleri': item.nemOlcumleri,
+        'fizikiYapiKontrol': item.fizikiYapiKontrol,
+        'muhurKontrol': item.muhurKontrol,
+        'irsaliyeEslestirme': item.irsaliyeEslestirme,
+        'aciklama': item.aciklama,
+      };
+    }
+    if (item is SAFBResponseDto) {
+      return {
+        'id': item.id,
+        'tezgah': 'Tezgah 1',
+        'duzce': item.duzceSayac,
+        'almanya': item.almanyaSayac,
+        'hurda': item.retAdet,
+        'aciklama': item.aciklama,
+      };
+    }
+    return {};
+  }
+
   void _navigateToForm(int index) {
     Widget? screen;
     final initialDate = DateTime.now();
@@ -678,7 +846,7 @@ class _ReportEditTabState extends ConsumerState<ReportEditTab> {
       case 0:
         screen = QualityApprovalFormScreen(
           initialDate: initialDate,
-        ); // Fixed parameter
+        );
         break;
       case 1:
         screen = FinalKontrolScreen(initialDate: initialDate);
@@ -693,17 +861,17 @@ class _ReportEditTabState extends ConsumerState<ReportEditTab> {
         screen = GirisKaliteKontrolScreen(initialDate: initialDate);
         break;
       case 5:
-        // Palet Giriş
         screen = PaletGirisKaliteScreen(initialDate: initialDate);
         break;
       case 6:
-        // SAF B9
         screen = SafB9CounterScreen(initialDate: initialDate);
         break;
     }
 
     if (screen != null) {
-      Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen!));
+      Navigator.of(context).push(MaterialPageRoute(builder: (_) => screen!)).then((_) {
+        ref.invalidate(reportListProvider);
+      });
     }
   }
 }

@@ -3,8 +3,9 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../../core/constants/app_colors.dart';
 import '../../../../../core/widgets/forms/sarj_no_picker.dart';
-import '../../../providers/audit_providers.dart';
-import '../../../providers/master_data_provider.dart';
+import '../../providers/report_edit_providers.dart';
+import '../../providers/master_data_provider.dart';
+import '../../../domain/entities/master_data_item.dart';
 import '../../../../forms/presentation/providers/rework_providers.dart';
 
 class EditReworkDialog extends ConsumerStatefulWidget {
@@ -403,14 +404,12 @@ class _EditReworkDialogState extends ConsumerState<EditReworkDialog> {
                       size: 16,
                     ),
                     style: TextStyle(color: AppColors.textMain, fontSize: 13),
-                    items: items
-                        .map(
-                          (item) => DropdownMenuItem(
-                            value: item.id, 
-                            child: Text('${item.code} - ${item.description ?? ''}')
-                          ),
-                        )
-                        .toList(),
+                    items: items.map((item) {
+                      return DropdownMenuItem<int>(
+                        value: item.id,
+                        child: Text('${item.code} - ${item.description ?? ''}'),
+                      );
+                    }).toList(),
                     onChanged: onChanged,
                   ),
                 ),
@@ -516,7 +515,7 @@ class _EditReworkDialogState extends ConsumerState<EditReworkDialog> {
 
       await ref.read(reworkRepositoryProvider).update(id, payload);
       
-      ref.invalidate(auditStateProvider);
+      ref.invalidate(reportListProvider);
 
       if (mounted) {
         Navigator.pop(context);

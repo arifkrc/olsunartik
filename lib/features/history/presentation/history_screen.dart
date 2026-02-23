@@ -20,7 +20,6 @@ class HistoryScreen extends ConsumerStatefulWidget {
 
 class _HistoryScreenState extends ConsumerState<HistoryScreen> {
   final String _operatorName = 'Furkan Yılmaz';
-  String _selectedFilter = 'Tümü';
 
   final List<String> _filters = [
     'Tümü',
@@ -30,28 +29,11 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
     'Final Kontrol',
   ];
 
-  bool _matchesFilter(AuditAction action, String filter) {
-    if (filter == 'Tümü') return true;
-    final type = action.varlikTipi.toLowerCase();
-    switch (filter) {
-      case 'Fire':
-        return type.contains('fire');
-      case 'Rework':
-        return type.contains('rework');
-      case 'Giriş Kalite':
-        return type.contains('giris') || type.contains('giriş');
-      case 'Final Kontrol':
-        return type.contains('final');
-      default:
-        return true;
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final auditState = ref.watch(auditStateProvider);
-    final allActions = auditState.value ?? [];
-    final currentActions = allActions.where((a) => _matchesFilter(a, _selectedFilter)).toList();
+    final selectedFilter = ref.watch(historyFilterProvider);
+    final currentActions = auditState.value ?? [];
     final hasMore = ref.read(auditStateProvider.notifier).hasMore;
 
     ref.listen(auditStateProvider, (previous, next) {
@@ -208,16 +190,14 @@ class _HistoryScreenState extends ConsumerState<HistoryScreen> {
                         padding: const EdgeInsets.symmetric(horizontal: 24),
                         child: Row(
                           children: _filters.map((filter) {
-                            final isSelected = _selectedFilter == filter;
+                            final isSelected = selectedFilter == filter;
                             return Padding(
                               padding: const EdgeInsets.only(right: 8),
                               child: FilterChip(
                                 selected: isSelected,
                                 label: Text(filter),
                                 onSelected: (bool selected) {
-                                  setState(() {
-                                    _selectedFilter = filter;
-                                  });
+                                  ref.read(historyFilterProvider.notifier).setFilter(filter);
                                 },
                                 backgroundColor: AppColors.surface,
                                 selectedColor: AppColors.primary.withValues(

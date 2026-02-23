@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../../core/constants/app_colors.dart';
 import '../../../../../core/widgets/forms/sarj_no_picker.dart';
-import '../../../providers/audit_providers.dart';
+import '../../providers/report_edit_providers.dart';
 import '../../../../forms/presentation/providers/giris_kalite_kontrol_providers.dart';
 
 class EditGirisKaliteDialog extends ConsumerStatefulWidget {
@@ -434,7 +434,7 @@ class _EditGirisKaliteDialogState extends ConsumerState<EditGirisKaliteDialog> {
 
       await ref.read(girisKaliteKontrolRepositoryProvider).update(id, payload);
       
-      ref.invalidate(auditStateProvider);
+      ref.invalidate(reportListProvider);
 
       if (mounted) {
         Navigator.pop(context);

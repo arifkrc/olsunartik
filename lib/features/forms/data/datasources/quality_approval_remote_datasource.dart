@@ -1,3 +1,4 @@
+import '../../../../core/models/paged_result.dart';
 import 'package:dio/dio.dart';
 import '../models/quality_approval_form_dto.dart';
 
@@ -57,17 +58,54 @@ class QualityApprovalRemoteDataSource {
     }
   }
 
+  Future<void> delete(int id) async {
+    try {
+      final response = await _dio.delete('kaliteonay/$id');
+      final respData = response.data;
+      if (respData['success'] == false) {
+        throw Exception(respData['message'] ?? 'Silme hatası');
+      }
+    } on DioException catch (e) {
+      throw Exception(e.message ?? 'Bilinmeyen hata');
+    }
+  }
+
   // --- Aşağıdakiler ileride gerekirse kullanılabilir ---
 
-  Future<List<KaliteOnayResponseDto>> getAll() async {
-    final response = await _dio.get('kaliteonay');
+  Future<PagedResult<KaliteOnayResponseDto>> getForms({
+    int pageNumber = 1,
+    int pageSize = 10,
+    DateTime? startDate,
+    DateTime? endDate,
+    int? vardiyaId,
+  }) async {
+    final response = await _dio.get(
+      'kaliteonay',
+      queryParameters: {
+        'pageNumber': pageNumber,
+        'pageSize': pageSize,
+        if (startDate != null) 'startDate': startDate.toUtc().toIso8601String(),
+        if (endDate != null) 'endDate': endDate.toUtc().toIso8601String(),
+        if (vardiyaId != null) 'vardiyaId': vardiyaId,
+      },
+    );
     final data = response.data;
     if (data['success'] == true && data['data'] != null) {
-      final list = data['data'] as List<dynamic>;
-      return list
-          .map((j) => KaliteOnayResponseDto.fromJson(j as Map<String, dynamic>))
+      return PagedResult<KaliteOnayResponseDto>.fromJson(
+        data['data'],
+        (j) => KaliteOnayResponseDto.fromJson(j),
+      );
+    }
+    throw Exception(data['message'] ?? 'Veriler alınamadı');
+  }
+
+  Future<List<KaliteOnayResponseDto>> getAll() async {
+    final response = await _dio.get('kaliteonay/all');
+    if (response.data['success'] == true) {
+      return (response.data['data'] as List)
+          .map((j) => KaliteOnayResponseDto.fromJson(j))
           .toList();
     }
-    return [];
+    throw Exception(response.data['message'] ?? 'Veriler alınamadı');
   }
 }

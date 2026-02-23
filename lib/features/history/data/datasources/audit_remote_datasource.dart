@@ -9,12 +9,14 @@ class AuditRemoteDataSource {
   Future<List<AuditActionDto>> getMyActions({
     required int pageNumber,
     required int pageSize,
+    String? varlikTipi,
   }) async {
     final response = await _dio.get(
       '/audit/my-actions',
       queryParameters: {
         'pageNumber': pageNumber,
         'pageSize': pageSize,
+        if (varlikTipi != null && varlikTipi != 'Tümü') 'varlikTipi': varlikTipi,
       },
     );
 

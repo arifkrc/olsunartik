@@ -1,6 +1,8 @@
 import 'package:excel/excel.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'models.dart';
+import '../providers/fire_analiz_providers.dart';
+import '../../data/models/fire_analiz_dto.dart';
 
 class ScrapAnalysisState {
   final bool isLoading;
@@ -28,7 +30,7 @@ class ScrapAnalysisNotifier extends Notifier<ScrapAnalysisState> {
     return ScrapAnalysisState();
   }
 
-  Future<void> parseExcel(List<int> bytes) async {
+  Future<List<ScrapUploadItem>> parseExcel(List<int> bytes) async {
     state = state.copyWith(isLoading: true, error: null);
 
     try {
@@ -58,27 +60,45 @@ class ScrapAnalysisNotifier extends Notifier<ScrapAnalysisState> {
           // 4: Hole Quantity (Optional)
 
           DateTime? date;
-          try {
-            final dateCell = row[0];
-            final dVal = _extractCellValue(dateCell?.value);
+        try {
+          final dateCell = row[0];
+          final dVal = _extractCellValue(dateCell?.value);
 
-            if (dVal is DateTime) {
-              date = dVal;
-            } else if (dVal is String) {
-              // Try string format dd.MM.yyyy
-              final dateStr = dVal.trim();
-              final parts = dateStr.split('.');
+          if (dVal is DateTime) {
+            date = dVal;
+          } else if (dVal is num) {
+            // Excel Serial Date (Days since 1900-01-01)
+            // 25569 is the offset between 1900 and 1970
+            date = DateTime(1899, 12, 30).add(Duration(days: dVal.toInt()));
+          } else if (dVal != null) {
+            final dateStr = dVal.toString().trim();
+            // Handle dd.MM.yyyy, dd/MM/yyyy, dd-MM-yyyy
+            final separators = ['.', '/', '-'];
+            for (var sep in separators) {
+              final parts = dateStr.split(sep);
+              if (parts.length == 4) { // Handle case where space or something adds extra parts
+                  // ...
+              }
               if (parts.length == 3) {
-                date = DateTime(
-                  int.parse(parts[2]),
-                  int.parse(parts[1]),
-                  int.parse(parts[0]),
-                );
+                try {
+                  int day = int.parse(parts[0]);
+                  int month = int.parse(parts[1]);
+                  int year = int.parse(parts[2]);
+                  
+                  if (year < 100) year += 2000;
+                  
+                  date = DateTime(year, month, day);
+                  break;
+                } catch (_) {}
               }
             }
-          } catch (_) {}
+            
+            // Final fallback to DateTime.tryParse (ISO format)
+            date ??= DateTime.tryParse(dateStr);
+          }
+        } catch (_) {}
 
-          final productCode =
+        final productCode =
               _extractCellValue(row[1]?.value)?.toString().trim() ?? '';
           final factory =
               _extractCellValue(
@@ -111,20 +131,177 @@ class ScrapAnalysisNotifier extends Notifier<ScrapAnalysisState> {
         }
       }
 
-      // Generate Dashboard Data
-      // Use the date from the first batch or current date if not found
-      DateTime initialDate = DateTime.now();
-      if (productionItems.isNotEmpty && productionItems.first.date != null) {
-        initialDate = productionItems.first.date!;
-      }
-
-      final dashboardData = _generateDashboardData(
-        productionItems,
-        initialDate,
-      );
-      state = state.copyWith(isLoading: false, dashboardData: dashboardData);
+      state = state.copyWith(isLoading: false);
+      return productionItems;
     } catch (e) {
       state = state.copyWith(isLoading: false, error: 'Analiz hatası: $e');
+      throw Exception('Excel ayrıştırma hatası: $e');
+    }
+  }
+
+  Future<void> fetchDashboardData(DateTime date, {bool forceCalculate = false}) async {
+    state = state.copyWith(isLoading: true, error: null);
+    try {
+      final repository = ref.read(fireAnalizRepositoryProvider);
+      
+      // Format date as yyyy-MM-dd
+      final dateStr = '${date.year}-${date.month.toString().padLeft(2, '0')}-${date.day.toString().padLeft(2, '0')}';
+      
+      final FireAnalizDetayDto detayDto;
+      if (forceCalculate) {
+        // Trigger calculation (POST /api/fire-analiz/hesapla)
+        detayDto = await repository.hesapla(dateStr);
+      } else {
+        // Just fetch details (GET /api/fire-analiz/{date})
+        detayDto = await repository.getDetayByTarih(dateStr);
+      }
+
+      final frenbuTable = <ScrapTableItem>[];
+      final d2Table = <ScrapTableItem>[];
+      final d3Table = <ScrapTableItem>[];
+      final frenbuClean = <ProductionEntry>[];
+      final d2Clean = <ProductionEntry>[];
+      final d3Clean = <ProductionEntry>[];
+
+      for (var urun in detayDto.urunDetaylari) {
+        if (urun.segment == 1) { // Frenbu
+          if (urun.fireVar) {
+            frenbuTable.add(
+              ScrapTableItem(
+                productType: urun.urunTuru,
+                productCode: urun.urunKodu,
+                productionQty: urun.uretimAdeti,
+                scrapQty: urun.fireAdeti,
+                scrapRate: urun.fireOrani,
+                details: [], // Optionally decode details from `hataDetaylari` if provided as string
+              ),
+            );
+          } else {
+            frenbuClean.add(
+              ProductionEntry(
+                productCode: urun.urunKodu,
+                factoryType: 'FRENBU',
+                quantity: urun.uretimAdeti,
+              ),
+            );
+          }
+        } else if (urun.segment == 2) { // D2
+          if (urun.fireVar) {
+            d2Table.add(
+              ScrapTableItem(
+                productType: urun.urunTuru,
+                productCode: urun.urunKodu,
+                productionQty: urun.uretimAdeti,
+                scrapQty: urun.fireAdeti,
+                scrapRate: urun.fireOrani,
+              ),
+            );
+          } else {
+            d2Clean.add(
+              ProductionEntry(
+                productCode: urun.urunKodu,
+                factoryType: 'D2',
+                quantity: urun.uretimAdeti,
+              ),
+            );
+          }
+        } else if (urun.segment == 3) { // D3
+          if (urun.fireVar) {
+            d3Table.add(
+              ScrapTableItem(
+                productType: urun.urunTuru,
+                productCode: urun.urunKodu,
+                productionQty: urun.uretimAdeti,
+                scrapQty: urun.fireAdeti,
+                scrapRate: urun.fireOrani,
+              ),
+            );
+          } else {
+            d3Clean.add(
+              ProductionEntry(
+                productCode: urun.urunKodu,
+                factoryType: 'D3',
+                quantity: urun.uretimAdeti,
+              ),
+            );
+          }
+        }
+      }
+
+      // Populate Distribution
+      final distribution = <DefectDistributionItem>[];
+      // Group by hataKodu
+      final groupedHata = <String, Map<String, num>>{};
+      for (var dist in detayDto.hataDagilimleri) {
+         groupedHata.putIfAbsent(dist.hataKodu, () => {'disk': 0, 'drum': 0, 'hub': 0, 'total': 0});
+         
+         if (dist.urunTuru.toLowerCase().contains('disk')) {
+           groupedHata[dist.hataKodu]!['disk'] = (groupedHata[dist.hataKodu]!['disk'] ?? 0) + dist.fireAdeti;
+         } else if (dist.urunTuru.toLowerCase().contains('kampana')) {
+           groupedHata[dist.hataKodu]!['drum'] = (groupedHata[dist.hataKodu]!['drum'] ?? 0) + dist.fireAdeti;
+         } else if (dist.urunTuru.toLowerCase().contains('porya')) {
+           groupedHata[dist.hataKodu]!['hub'] = (groupedHata[dist.hataKodu]!['hub'] ?? 0) + dist.fireAdeti;
+         }
+         groupedHata[dist.hataKodu]!['total'] = (groupedHata[dist.hataKodu]!['total'] ?? 0) + dist.fireAdeti;
+      }
+
+      final double totalFrenbuScrapCalculated = detayDto.frenbuFireAdeti.toDouble();
+
+      groupedHata.forEach((hataKodu, data) {
+        final total = (data['total'] ?? 0).toInt();
+        distribution.add(
+          DefectDistributionItem(
+            defectName: hataKodu,
+            diskScrap: (data['disk'] ?? 0).toInt(),
+            drumScrap: (data['drum'] ?? 0).toInt(),
+            hubScrap: (data['hub'] ?? 0).toInt(),
+            total: total,
+            rate: totalFrenbuScrapCalculated > 0 ? (total / totalFrenbuScrapCalculated) * 100 : 0,
+          )
+        );
+      });
+
+      frenbuTable.sort((a, b) => b.scrapRate.compareTo(a.scrapRate));
+      d2Table.sort((a, b) => b.scrapRate.compareTo(a.scrapRate));
+      d3Table.sort((a, b) => b.scrapRate.compareTo(a.scrapRate));
+
+      final dashboardData = ScrapDashboardData(
+        date: date,
+        totalFrenbuProduction: detayDto.frenbuUretimAdeti,
+        summary: FactorySummary(
+          d2ScrapDto: detayDto.d2FireAdeti,
+          d2Turned: detayDto.d2UretimAdeti,
+          d2Rate: detayDto.d2FireOrani,
+          d3ScrapDto: detayDto.d3FireAdeti,
+          d3Turned: detayDto.d3UretimAdeti,
+          d3Rate: detayDto.d3FireOrani,
+          frenbuScrapDto: detayDto.frenbuFireAdeti,
+          frenbuTurned: detayDto.frenbuUretimAdeti,
+          frenbuRate: detayDto.frenbuFireOrani,
+        ),
+        dailyScrapRates: [
+          FactoryDailyScrap('D2', detayDto.d2FireOrani),
+          FactoryDailyScrap('D3', detayDto.d3FireOrani),
+          FactoryDailyScrap('FRENBU', detayDto.frenbuFireOrani),
+        ],
+        holeProductionStats: {
+          'D2': detayDto.d2DelikAdeti,
+          'D3': detayDto.d3DelikAdeti,
+          'FRENBU': detayDto.frenbuDelikAdeti,
+        },
+        frenbuTable: frenbuTable,
+        frenbuDefectDistribution: distribution,
+        frenbuCleanProducts: frenbuClean, 
+        frenbuShifts: [], // Optional/Mock feature removed or leave empty
+        d2Table: d2Table,
+        d3Table: d3Table,
+        d2CleanProducts: d2Clean,
+        d3CleanProducts: d3Clean,
+      );
+
+      state = state.copyWith(isLoading: false, dashboardData: dashboardData);
+    } catch (e) {
+      state = state.copyWith(isLoading: false, error: 'Hesaplama verisi alınamadı: $e');
     }
   }
 
@@ -139,7 +316,6 @@ class ScrapAnalysisNotifier extends Notifier<ScrapAnalysisState> {
 
   int _parseQuantity(dynamic cell) {
     if (cell == null) return 0;
-    // Handle Data object if passed directly
     var val = cell is Data ? cell.value : cell;
     val = _extractCellValue(val);
 
@@ -148,342 +324,10 @@ class ScrapAnalysisNotifier extends Notifier<ScrapAnalysisState> {
     if (val is int) return val;
     if (val is double) return val.toInt();
 
-    // Robust String Parsing
     final strVal = val.toString().trim().replaceAll(' ', '');
     if (strVal.isEmpty) return 0;
 
     return int.tryParse(strVal) ?? 0;
-  }
-
-  ScrapDashboardData _generateDashboardData(
-    List<ScrapUploadItem> productionItems,
-    DateTime date,
-  ) {
-    // 1. MOCK SCRAP DATA (Simulating 'Fire Kayıtları' from database)
-    // In real app, this would be fetched from repository based on Date Range
-    // Structure: Defect Code, Product Code, Scrap Qty
-    final List<Map<String, dynamic>> mockScrapData = [
-      // Frenbu Scraps (Starts with T, TI, etc - usually TI)
-      {'defect': 'Tİ-01', 'product': '1310130', 'qty': 1},
-      {'defect': 'Tİ-02', 'product': '4210020', 'qty': 14},
-      {'defect': 'Tİ-01', 'product': '5623060', 'qty': 1},
-      {'defect': 'Tİ-03', 'product': '6312011', 'qty': 2},
-      {'defect': 'Tİ-04', 'product': '6325360', 'qty': 1},
-      // D2 Scraps (Starts with D)
-      {'defect': 'D-01', 'product': '1820910', 'qty': 7},
-      {'defect': 'D-02', 'product': '2621090', 'qty': 5},
-      {'defect': 'D-03', 'product': '3921980', 'qty': 2},
-      {'defect': 'D-01', 'product': '5623060', 'qty': 1},
-      {'defect': 'D-05', 'product': '6340051', 'qty': 6},
-      // D3 Scraps (Starts with D)
-      {'defect': 'D-01', 'product': '1310130', 'qty': 7},
-      {'defect': 'D-02', 'product': '4210010', 'qty': 7},
-      {'defect': 'D-03', 'product': '4210020', 'qty': 11},
-      {'defect': 'D-04', 'product': '4810310', 'qty': 1},
-
-      // Some mock defects for distribution matrix
-      {'defect': '1.Yön Bağlama Hatası', 'product': '5623060', 'qty': 1},
-      {'defect': 'Darbeye Bağlı Kırık', 'product': '1310130', 'qty': 1},
-      {'defect': 'Delik Kaçıklığı', 'product': '4210020', 'qty': 16},
-    ];
-
-    // 2. Aggregate Data
-    final frenbuTable = <ScrapTableItem>[];
-    final frenbuClean = <ProductionEntry>[]; // NEW
-    final d2Table = <ScrapTableItem>[];
-    final d3Table = <ScrapTableItem>[];
-    final d2Clean = <ProductionEntry>[];
-    final d3Clean = <ProductionEntry>[];
-
-    int totalFrenbuProd = 0;
-    int totalD2Scrap = 0;
-    int totalD3Scrap = 0;
-    int totalFrenbuScrap = 0;
-
-    int totalD2Turned = 0;
-
-    int totalD3Turned = 0;
-
-    // Hole Production Stats - ADDED
-    int totalD2Hole = 0;
-    int totalD3Hole = 0;
-    int totalFrenbuHole = 0;
-
-    // Filter scraps by selected date (Mocking logic: if date is selected, we might want to vary data)
-    // For now, we use static mock data but in real scenario, we would query DB with this date.
-    final selectedScraps = mockScrapData;
-
-    // In a real implementation:
-    // final selectedScraps = await repository.getScrapsByDate(date);
-
-    for (var item in productionItems) {
-      // Accumulate Hole Qty - ADDED
-      // Accumulate Hole Qty - CORRECTED LOGIC
-      if (item.holeQty > 0) {
-        if (item.factory == 'D2') {
-          totalD2Hole += item.holeQty;
-        } else if (item.factory == 'D3') {
-          totalD3Hole += item.holeQty;
-        } else {
-          // If not D2 or D3, assume Frenbu/Other
-          totalFrenbuHole += item.holeQty;
-        }
-      }
-
-      // Find scraps for this product
-      final productScraps = selectedScraps
-          .where((s) => s['product'] == item.productCode)
-          .toList();
-
-      int dScrapQty = 0;
-      int tiScrapQty = 0;
-
-      for (var s in productScraps) {
-        final defectCode = s['defect'] as String;
-        final qty = s['qty'] as int;
-
-        if (defectCode.startsWith('D')) {
-          dScrapQty += qty;
-        } else if (defectCode.startsWith('Tİ') ||
-            defectCode.startsWith('TI') ||
-            !defectCode.startsWith('D')) {
-          // Treating non-D as Frenbu (Tİ) based on user prompt logic
-          tiScrapQty += qty;
-        }
-      }
-
-      String type = _getProductType(item.productCode);
-
-      // FRENBU TABLE (TI Scraps)
-      // Only process if it feels like a Frenbu part (implied by context or if it has TI scraps)
-      // Or if we decide all parts go through Frenbu check?
-      // Current logic: If it has TI scraps OR it is NOT D2/D3 specific?
-      // Actually the Excel has 'Factory' column.
-      // If Factory is D2, it contributes to D2. If D3, to D3.
-      // But typically ALL parts might be processed in Frenbu too?
-      // Let's assume ANY part can be in Frenbu list if it has production there.
-      // For now, let's assume items with factory 'D2' or 'D3' are foundry items.
-      // What about Frenbu items? Usually they don't have 'D2'/'D3' factory in typical uploads if separate?
-      // OR, does the user want ALL items to be checked for Frenbu scraps?
-      // Based on previous code:
-      // if (tiScrapQty > 0 || item.quantity > 0) -> added to frenbuTable if prod > 0.
-
-      // Let's refine:
-      if (item.quantity > 0) {
-        totalFrenbuProd += item.quantity;
-        if (tiScrapQty > 0) {
-          final details = <ScrapDetail>[];
-          for (var s in productScraps) {
-            final defectCode = s['defect'] as String;
-            final qty = s['qty'] as int;
-            // Mocking details
-            details.add(
-              ScrapDetail(
-                defectName: defectCode,
-                quantity: qty,
-                batchNo: 'SARJ-${DateTime.now().millisecond}', // Mock Batch
-                description:
-                    'Otomatik ölçüm sonrası tespit edilen $defectCode hatası.',
-                imageUrl: 'https://via.placeholder.com/150', // Mock Image
-              ),
-            );
-          }
-
-          frenbuTable.add(
-            ScrapTableItem(
-              productType: type,
-              productCode: item.productCode,
-              productionQty: item.quantity,
-              scrapQty: tiScrapQty,
-              scrapRate: (tiScrapQty / item.quantity) * 100,
-              details: details,
-            ),
-          );
-          totalFrenbuScrap += tiScrapQty;
-        } else {
-          // No TI scraps -> Clean for Frenbu
-          frenbuClean.add(
-            ProductionEntry(
-              productCode: item.productCode,
-              factoryType: 'FRENBU',
-              quantity: item.quantity,
-            ),
-          );
-        }
-      }
-
-      // FOUNDRY TABLES (D Scraps)
-      if (item.factory == 'D2') {
-        totalD2Turned += item.quantity;
-        if (dScrapQty > 0) {
-          d2Table.add(
-            ScrapTableItem(
-              productType: type,
-              productCode: item.productCode,
-              productionQty: item.quantity,
-              scrapQty: dScrapQty,
-              scrapRate: item.quantity > 0
-                  ? (dScrapQty / item.quantity) * 100
-                  : 0,
-            ),
-          );
-          totalD2Scrap += dScrapQty;
-        } else {
-          d2Clean.add(
-            ProductionEntry(
-              productCode: item.productCode,
-              factoryType: 'D2',
-              quantity: item.quantity,
-            ),
-          );
-        }
-      } else if (item.factory == 'D3') {
-        totalD3Turned += item.quantity;
-        if (dScrapQty > 0) {
-          d3Table.add(
-            ScrapTableItem(
-              productType: type,
-              productCode: item.productCode,
-              productionQty: item.quantity,
-              scrapQty: dScrapQty,
-              scrapRate: item.quantity > 0
-                  ? (dScrapQty / item.quantity) * 100
-                  : 0,
-            ),
-          );
-          totalD3Scrap += dScrapQty;
-        } else {
-          d3Clean.add(
-            ProductionEntry(
-              productCode: item.productCode,
-              factoryType: 'D3',
-              quantity: item.quantity,
-            ),
-          );
-        }
-      }
-    }
-
-    // Sort tables by Scrap Rate desc
-    frenbuTable.sort((a, b) => b.scrapRate.compareTo(a.scrapRate));
-    d2Table.sort((a, b) => b.scrapRate.compareTo(a.scrapRate));
-    d3Table.sort((a, b) => b.scrapRate.compareTo(a.scrapRate));
-
-    // Mock Shifts for Frenbu
-    final mockFrenbuShifts = [
-      ShiftData(
-        shiftName: '00:00 - 08:00',
-        scrapQty: (totalFrenbuScrap * 0.4).toInt(),
-        rate: 2.1,
-      ),
-      ShiftData(
-        shiftName: '08:00 - 16:00',
-        scrapQty: (totalFrenbuScrap * 0.35).toInt(),
-        rate: 1.8,
-      ),
-      ShiftData(
-        shiftName: '16:00 - 00:00',
-        scrapQty: (totalFrenbuScrap * 0.25).toInt(),
-        rate: 1.2,
-      ),
-    ];
-
-    return ScrapDashboardData(
-      date: DateTime.now(), // Should rely on Excel date column if available
-      totalFrenbuProduction: totalFrenbuProd,
-      summary: FactorySummary(
-        d2ScrapDto: totalD2Scrap,
-        d2Turned: totalD2Turned,
-        d2Rate: totalD2Turned > 0 ? (totalD2Scrap / totalD2Turned) * 100 : 0,
-        d3ScrapDto: totalD3Scrap,
-        d3Turned: totalD3Turned,
-        d3Rate: totalD3Turned > 0 ? (totalD3Scrap / totalD3Turned) * 100 : 0,
-        frenbuScrapDto: totalFrenbuScrap,
-        frenbuTurned: totalFrenbuProd,
-        frenbuRate: totalFrenbuProd > 0
-            ? (totalFrenbuScrap / totalFrenbuProd) * 100
-            : 0,
-      ),
-      dailyScrapRates: [
-        FactoryDailyScrap(
-          'D2',
-          totalD2Turned > 0 ? (totalD2Scrap / totalD2Turned) * 100 : 0,
-        ),
-        FactoryDailyScrap(
-          'D3',
-          totalD3Turned > 0 ? (totalD3Scrap / totalD3Turned) * 100 : 0,
-        ),
-        FactoryDailyScrap(
-          'FRENBU',
-          totalFrenbuProd > 0 ? (totalFrenbuScrap / totalFrenbuProd) * 100 : 0,
-        ),
-      ],
-      holeProductionStats: {
-        // ADDED
-        'D2': totalD2Hole,
-        'D3': totalD3Hole,
-        'FRENBU': totalFrenbuHole,
-      },
-      frenbuTable: frenbuTable,
-      frenbuDefectDistribution: _generateMockDistribution(), // Mock for now
-      frenbuCleanProducts: frenbuClean, // NEW
-      frenbuShifts: mockFrenbuShifts, // ADDED
-      d2Table: d2Table,
-      d3Table: d3Table,
-      d2CleanProducts: d2Clean,
-      d3CleanProducts: d3Clean,
-    );
-  }
-
-  String _getProductType(String code) {
-    if (code.startsWith('1')) return 'Disk';
-    if (code.startsWith('4')) return 'Disk';
-    if (code.startsWith('5')) return 'Kampana';
-    if (code.startsWith('6')) return 'Kampana';
-    if (code.startsWith('8')) return 'Kampana';
-    if (code.startsWith('2')) return 'Kampana';
-    if (code.startsWith('3')) return 'Kampana';
-    if (code.startsWith('8')) return 'Kampana';
-    if (code.startsWith('634')) return 'Porya';
-    return 'Kampana'; // Default fallback
-  }
-
-  List<DefectDistributionItem> _generateMockDistribution() {
-    return [
-      DefectDistributionItem(
-        defectName: '1.Yön Bağlama Hatası',
-        drumScrap: 1,
-        total: 1,
-        rate: 0.03,
-      ),
-      DefectDistributionItem(
-        defectName: 'Darbeye Bağlı Kırık',
-        diskScrap: 1,
-        total: 1,
-        rate: 0.03,
-      ),
-      DefectDistributionItem(
-        defectName: 'Delik Kaçıklığı',
-        diskScrap: 12,
-        drumScrap: 4,
-        total: 16,
-        rate: 0.54,
-      ),
-      DefectDistributionItem(
-        defectName: 'Elmas Kırması',
-        diskScrap: 1,
-        drumScrap: 2,
-        total: 3,
-        rate: 0.10,
-      ),
-      DefectDistributionItem(
-        defectName: 'Eşmerkezlilik Hatası',
-        diskScrap: 2,
-        hubScrap: 1,
-        total: 3,
-        rate: 0.10,
-      ),
-    ];
   }
 
   void reset() {
@@ -494,6 +338,7 @@ class ScrapAnalysisNotifier extends Notifier<ScrapAnalysisState> {
     state = state.copyWith(error: null);
   }
 }
+
 
 final scrapAnalysisProvider =
     NotifierProvider<ScrapAnalysisNotifier, ScrapAnalysisState>(

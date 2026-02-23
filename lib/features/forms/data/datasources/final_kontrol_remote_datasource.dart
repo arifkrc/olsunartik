@@ -1,3 +1,4 @@
+import '../../../../core/models/paged_result.dart';
 import 'package:dio/dio.dart';
 import '../models/final_kontrol_form_dto.dart';
 
@@ -6,10 +7,35 @@ class FinalKontrolRemoteDataSource {
 
   FinalKontrolRemoteDataSource(this._dio);
 
+  Future<PagedResult<FinalKontrolResponseItemDto>> getForms({
+    int pageNumber = 1,
+    int pageSize = 10,
+    DateTime? startDate,
+    DateTime? endDate,
+    int? vardiyaId,
+  }) async {
+    final response = await _dio.get(
+      'final-kontrol',
+      queryParameters: {
+        'pageNumber': pageNumber,
+        'pageSize': pageSize,
+        if (startDate != null) 'startDate': startDate.toUtc().toIso8601String(),
+        if (endDate != null) 'endDate': endDate.toUtc().toIso8601String(),
+        if (vardiyaId != null) 'vardiyaId': vardiyaId,
+      },
+    );
+    if (response.data['success'] == true) {
+      return PagedResult<FinalKontrolResponseItemDto>.fromJson(
+        response.data['data'],
+        (j) => FinalKontrolResponseItemDto.fromJson(j),
+      );
+    }
+    throw Exception(response.data['message'] ?? 'Veriler alınamadı');
+  }
+
   Future<List<Map<String, dynamic>>> getAll() async {
     final response = await _dio.get('FinalKontrol');
-    final List<dynamic> data = response.data['data'] as List<dynamic>? ?? [];
-    return data.map((json) => json as Map<String, dynamic>).toList();
+    return (response.data['data'] as List).cast<Map<String, dynamic>>();
   }
 
   Future<Map<String, dynamic>> getById(int id) async {

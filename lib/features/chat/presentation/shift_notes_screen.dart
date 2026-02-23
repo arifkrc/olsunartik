@@ -1,5 +1,7 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:intl/intl.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/sidebar_navigation.dart';
@@ -7,78 +9,78 @@ import '../../auth/presentation/login_screen.dart';
 import '../../forms/presentation/forms_screen.dart';
 import '../../history/presentation/history_screen.dart';
 import '../../profile/presentation/profile_screen.dart';
+import '../../auth/presentation/providers/auth_providers.dart';
+import 'providers/shift_notes_providers.dart';
 
-class ShiftNotesScreen extends StatefulWidget {
+class ShiftNotesScreen extends ConsumerStatefulWidget {
   const ShiftNotesScreen({super.key});
 
   @override
-  State<ShiftNotesScreen> createState() => _ShiftNotesScreenState();
+  ConsumerState<ShiftNotesScreen> createState() => _ShiftNotesScreenState();
 }
 
-class _ShiftNotesScreenState extends State<ShiftNotesScreen> {
+class _ShiftNotesScreenState extends ConsumerState<ShiftNotesScreen> {
   final TextEditingController _controller = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final String _operatorName = 'Furkan Yılmaz';
+  bool _isSending = false;
 
-  // Örnek Mesajlar
-  final List<Map<String, dynamic>> _messages = [
-    {
-      'sender': 'Ahmet Yılmaz',
-      'message': 'Vardiya devri sorunsuz tamamlandı.',
-      'time': '07:55',
-      'isMe': false,
-      'color': Colors.blue,
-    },
-    {
-      'sender': 'Mehmet Demir',
-      'message':
-          '3 numaralı enjeksiyonda hammadde azalıyor, takviye lazım. Depodaki arkadaşlara ilettim ama henüz dönüş olmadı.',
-      'time': '09:15',
-      'isMe': false,
-      'color': Colors.orange,
-    },
-    {
-      'sender': 'Ali Kaya',
-      'message': 'Kalite kontrol numuneleri hazır mı?',
-      'time': '10:30',
-      'isMe': false,
-      'color': Colors.purple,
-    },
-    {
-      'sender': 'Furkan Yılmaz',
-      'message': 'Evet, laboratuvara gönderildi.',
-      'time': '10:32',
-      'isMe': true,
-      'color': AppColors.primary,
-    },
-  ];
+  @override
+  void dispose() {
+    _controller.dispose();
+    _scrollController.dispose();
+    super.dispose();
+  }
 
-  void _sendMessage() {
-    if (_controller.text.trim().isEmpty) return;
-    setState(() {
-      _messages.add({
-        'sender': 'Furkan Yılmaz',
-        'message': _controller.text,
-        'time':
-            '${DateTime.now().hour.toString().padLeft(2, '0')}:${DateTime.now().minute.toString().padLeft(2, '0')}',
-        'isMe': true,
-        'color': AppColors.primary,
-      });
+  void _scrollToBottom() {
+    if (_scrollController.hasClients) {
+      _scrollController.animateTo(
+        _scrollController.position.maxScrollExtent,
+        duration: const Duration(milliseconds: 300),
+        curve: Curves.easeOut,
+      );
+    }
+  }
+
+  Future<void> _sendMessage() async {
+    final text = _controller.text.trim();
+    if (text.isEmpty || _isSending) return;
+
+    setState(() => _isSending = true);
+
+    try {
+      final repository = ref.read(vardiyaNotlariRepositoryProvider);
+      // Example: Title is empty or predefined, priority is 1
+      await repository.createVardiyaNotu('Vardiya Notu', text, 1);
+      
       _controller.clear();
-    });
-    Future.delayed(const Duration(milliseconds: 100), () {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 300),
-          curve: Curves.easeOut,
+      // Refresh the list
+      ref.invalidate(vardiyaNotlariProvider);
+      
+      // Attempt to scroll to bottom after refreshing
+      Future.delayed(const Duration(milliseconds: 500), _scrollToBottom);
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Not gönderilemedi: $e'),
+            backgroundColor: AppColors.error,
+          ),
         );
       }
-    });
+    } finally {
+      if (mounted) {
+        setState(() => _isSending = false);
+      }
+    }
   }
 
   @override
   Widget build(BuildContext context) {
+    // Current user context
+    final currentUserAsync = ref.watch(currentUserProvider);
+    final userFullName = currentUserAsync.value?.fullName ?? 'Operatör';
+    final notesAsync = ref.watch(vardiyaNotlariProvider);
+
     return Scaffold(
       backgroundColor: AppColors.background,
       body: Stack(
@@ -120,9 +122,7 @@ class _ShiftNotesScreenState extends State<ShiftNotesScreen> {
                     );
                   }
                 },
-                operatorInitial: _operatorName.isNotEmpty
-                    ? _operatorName[0]
-                    : 'F',
+                operatorInitial: userFullName.isNotEmpty ? userFullName[0] : 'O',
                 onLogout: () => Navigator.of(context).pushReplacement(
                   MaterialPageRoute(builder: (_) => const LoginScreen()),
                 ),
@@ -146,7 +146,7 @@ class _ShiftNotesScreenState extends State<ShiftNotesScreen> {
                         ),
                         child: Row(
                           children: [
-                            Text(
+                            const Text(
                               'Vardiya Notları & Chat',
                               style: TextStyle(
                                 color: AppColors.textMain,
@@ -161,7 +161,7 @@ class _ShiftNotesScreenState extends State<ShiftNotesScreen> {
                                 color: AppColors.primary.withValues(alpha: 0.1),
                                 borderRadius: BorderRadius.circular(8),
                               ),
-                              child: Icon(
+                              child: const Icon(
                                 LucideIcons.users,
                                 color: AppColors.primary,
                               ),
@@ -169,153 +169,202 @@ class _ShiftNotesScreenState extends State<ShiftNotesScreen> {
                           ],
                         ),
                       ),
-
+                      
                       // Chat Alanı
                       Expanded(
                         child: Column(
                           children: [
                             // Mesaj Listesi
                             Expanded(
-                              child: ListView.builder(
-                                controller: _scrollController,
-                                padding: const EdgeInsets.all(24),
-                                itemCount: _messages.length,
-                                itemBuilder: (context, index) {
-                                  final msg = _messages[index];
-                                  final isMe = msg['isMe'] as bool;
+                              child: notesAsync.when(
+                                data: (messages) {
+                                  if (messages.isEmpty) {
+                                    return const Center(
+                                      child: Text(
+                                        'Henüz not eklenmemiş.',
+                                        style: TextStyle(color: AppColors.textSecondary),
+                                      ),
+                                    );
+                                  }
 
-                                  return Padding(
-                                    padding: const EdgeInsets.only(bottom: 12),
-                                    child: Row(
-                                      mainAxisAlignment: isMe
-                                          ? MainAxisAlignment.end
-                                          : MainAxisAlignment.start,
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        if (!isMe) ...[
-                                          CircleAvatar(
-                                            radius: 16,
-                                            backgroundColor:
-                                                (msg['color'] as Color)
-                                                    .withValues(alpha: 0.2),
-                                            child: Text(
-                                              (msg['sender'] as String)[0],
-                                              style: TextStyle(
-                                                color: msg['color'],
-                                                fontWeight: FontWeight.bold,
-                                                fontSize: 13,
-                                              ),
-                                            ),
-                                          ),
-                                          const SizedBox(width: 8),
-                                        ],
-                                        Flexible(
-                                          child: Container(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 14,
-                                              vertical: 10,
-                                            ),
-                                            constraints: BoxConstraints(
-                                              maxWidth:
-                                                  MediaQuery.of(
-                                                    context,
-                                                  ).size.width *
-                                                  0.7,
-                                            ),
-                                            decoration: BoxDecoration(
-                                              color: isMe
-                                                  ? AppColors.primary
-                                                  : AppColors.surface,
-                                              borderRadius: BorderRadius.only(
-                                                topLeft: const Radius.circular(
-                                                  12,
+                                  // Otomatik scroll için Future.microtask
+                                  Future.microtask(() {
+                                    if (_scrollController.hasClients && _scrollController.position.pixels == 0) {
+                                       _scrollController.jumpTo(_scrollController.position.maxScrollExtent);
+                                    }
+                                  });
+
+                                  return ListView.builder(
+                                    controller: _scrollController,
+                                    padding: const EdgeInsets.all(24),
+                                    itemCount: messages.length,
+                                    itemBuilder: (context, index) {
+                                      final msg = messages[index];
+                                      // If personelAdi is empty, fallback to kullaniciAdi
+                                      final senderName = (msg.personelAdi.isNotEmpty)
+                                          ? msg.personelAdi
+                                          : msg.kullaniciAdi;
+                                          
+                                      final isMe = senderName == userFullName;
+                                      
+                                      // Basit renk seçimi
+                                      final Color avatarColor = isMe ? AppColors.primary : Colors.blueGrey;
+
+                                      return Padding(
+                                        padding: const EdgeInsets.only(bottom: 12),
+                                        child: Row(
+                                          mainAxisAlignment: isMe
+                                              ? MainAxisAlignment.end
+                                              : MainAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            if (!isMe) ...[
+                                              CircleAvatar(
+                                                radius: 16,
+                                                backgroundColor:
+                                                    avatarColor.withValues(alpha: 0.2),
+                                                child: Text(
+                                                  senderName.isNotEmpty ? senderName[0].toUpperCase() : '?',
+                                                  style: TextStyle(
+                                                    color: avatarColor,
+                                                    fontWeight: FontWeight.bold,
+                                                    fontSize: 13,
+                                                  ),
                                                 ),
-                                                topRight: const Radius.circular(
-                                                  12,
-                                                ),
-                                                bottomLeft: isMe
-                                                    ? const Radius.circular(12)
-                                                    : Radius.zero,
-                                                bottomRight: isMe
-                                                    ? Radius.zero
-                                                    : const Radius.circular(12),
                                               ),
-                                              border: isMe
-                                                  ? null
-                                                  : Border.all(
-                                                      color:
-                                                          AppColors.glassBorder,
+                                              const SizedBox(width: 8),
+                                            ],
+                                            Flexible(
+                                              child: Container(
+                                                padding: const EdgeInsets.symmetric(
+                                                  horizontal: 14,
+                                                  vertical: 10,
+                                                ),
+                                                constraints: BoxConstraints(
+                                                  maxWidth:
+                                                      MediaQuery.of(
+                                                        context,
+                                                      ).size.width *
+                                                      0.7,
+                                                ),
+                                                decoration: BoxDecoration(
+                                                  color: isMe
+                                                      ? AppColors.primary
+                                                      : AppColors.surface,
+                                                  borderRadius: BorderRadius.only(
+                                                    topLeft: const Radius.circular(
+                                                      12,
                                                     ),
-                                            ),
-                                            child: Column(
-                                              crossAxisAlignment:
-                                                  CrossAxisAlignment.start,
-                                              children: [
-                                                if (!isMe)
-                                                  Padding(
-                                                    padding:
-                                                        const EdgeInsets.only(
-                                                          bottom: 2,
+                                                    topRight: const Radius.circular(
+                                                      12,
+                                                    ),
+                                                    bottomLeft: isMe
+                                                        ? const Radius.circular(12)
+                                                        : Radius.zero,
+                                                    bottomRight: isMe
+                                                        ? Radius.zero
+                                                        : const Radius.circular(12),
+                                                  ),
+                                                  border: isMe
+                                                      ? null
+                                                      : Border.all(
+                                                          color:
+                                                              AppColors.glassBorder,
                                                         ),
-                                                    child: Text(
-                                                      msg['sender'],
-                                                      style: TextStyle(
-                                                        fontSize: 11,
-                                                        fontWeight:
-                                                            FontWeight.bold,
-                                                        color: Colors.white
-                                                            .withValues(
-                                                              alpha: 0.8,
+                                                ),
+                                                child: Column(
+                                                  crossAxisAlignment:
+                                                      CrossAxisAlignment.start,
+                                                  children: [
+                                                    if (!isMe)
+                                                      Padding(
+                                                        padding:
+                                                            const EdgeInsets.only(
+                                                              bottom: 2,
                                                             ),
+                                                        child: Text(
+                                                          senderName,
+                                                          style: TextStyle(
+                                                            fontSize: 11,
+                                                            fontWeight:
+                                                                FontWeight.bold,
+                                                            color: Colors.white
+                                                                .withValues(
+                                                                  alpha: 0.8,
+                                                                ),
+                                                          ),
+                                                        ),
+                                                      ),
+                                                    Text(
+                                                      msg.notMetni,
+                                                      style: TextStyle(
+                                                        color: isMe
+                                                            ? Colors.white
+                                                            : AppColors.textMain,
+                                                        fontSize: 14,
                                                       ),
                                                     ),
-                                                  ),
-                                                Text(
-                                                  msg['message'],
-                                                  style: TextStyle(
-                                                    color: isMe
-                                                        ? Colors.white
-                                                        : AppColors.textMain,
-                                                    fontSize: 14,
-                                                  ),
-                                                ),
-                                                const SizedBox(height: 2),
-                                                Align(
-                                                  alignment:
-                                                      Alignment.bottomRight,
-                                                  child: Text(
-                                                    msg['time'],
-                                                    style: TextStyle(
-                                                      fontSize: 10,
-                                                      color: isMe
-                                                          ? Colors.white
-                                                                .withValues(
-                                                                  alpha: 0.7,
-                                                                )
-                                                          : AppColors
-                                                                .textSecondary,
+                                                    const SizedBox(height: 2),
+                                                    Align(
+                                                      alignment:
+                                                          Alignment.bottomRight,
+                                                      child: Text(
+                                                        DateFormat('HH:mm').format(msg.olusturmaZamani.toLocal()),
+                                                        style: TextStyle(
+                                                          fontSize: 10,
+                                                          color: isMe
+                                                              ? Colors.white
+                                                                    .withValues(
+                                                                      alpha: 0.7,
+                                                                    )
+                                                              : AppColors
+                                                                    .textSecondary,
+                                                        ),
+                                                      ),
                                                     ),
-                                                  ),
+                                                  ],
                                                 ),
-                                              ],
+                                              ),
                                             ),
-                                          ),
+                                            if (isMe) ...[const SizedBox(width: 8)],
+                                          ],
                                         ),
-                                        if (isMe) ...[const SizedBox(width: 8)],
+                                      );
+                                    },
+                                  );
+                                },
+                                loading: () => const Center(
+                                  child: CircularProgressIndicator(color: AppColors.primary),
+                                ),
+                                error: (error, StackTrace? stack) {
+                                  return Center(
+                                    child: Column(
+                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      children: [
+                                        const Icon(LucideIcons.alertCircle, color: AppColors.error, size: 48),
+                                        const SizedBox(height: 16),
+                                        Text('Bir hata oluştu :\n$error', textAlign: TextAlign.center, style: const TextStyle(color: AppColors.error)),
+                                        const SizedBox(height: 16),
+                                        ElevatedButton.icon(
+                                          onPressed: () => ref.invalidate(vardiyaNotlariProvider),
+                                          icon: const Icon(LucideIcons.refreshCw, size: 16),
+                                          label: const Text('Tekrar Dene'),
+                                        ),
                                       ],
                                     ),
                                   );
-                                },
+                                }
                               ),
                             ),
+                            
                             // Input Alanı
                             Container(
                               padding: const EdgeInsets.symmetric(
                                 horizontal: 16,
                                 vertical: 12,
                               ),
-                              decoration: BoxDecoration(
+                              decoration: const BoxDecoration(
                                 color: AppColors.surface,
                                 border: Border(
                                   top: BorderSide(
@@ -329,20 +378,20 @@ class _ShiftNotesScreenState extends State<ShiftNotesScreen> {
                                   Expanded(
                                     child: TextField(
                                       controller: _controller,
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         color: AppColors.textMain,
                                         fontSize: 14,
                                       ),
                                       decoration: InputDecoration(
                                         hintText: 'Mesajınızı yazın...',
-                                        hintStyle: TextStyle(
+                                        hintStyle: const TextStyle(
                                           color: AppColors.textSecondary,
                                         ),
                                         border: OutlineInputBorder(
                                           borderRadius: BorderRadius.circular(
                                             20,
                                           ),
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: AppColors.border,
                                           ),
                                         ),
@@ -350,7 +399,7 @@ class _ShiftNotesScreenState extends State<ShiftNotesScreen> {
                                           borderRadius: BorderRadius.circular(
                                             20,
                                           ),
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: AppColors.border,
                                           ),
                                         ),
@@ -358,7 +407,7 @@ class _ShiftNotesScreenState extends State<ShiftNotesScreen> {
                                           borderRadius: BorderRadius.circular(
                                             20,
                                           ),
-                                          borderSide: BorderSide(
+                                          borderSide: const BorderSide(
                                             color: AppColors.primary,
                                           ),
                                         ),
@@ -372,31 +421,39 @@ class _ShiftNotesScreenState extends State<ShiftNotesScreen> {
                                         filled: true,
                                       ),
                                       onSubmitted: (_) => _sendMessage(),
+                                      enabled: !_isSending,
                                     ),
                                   ),
                                   const SizedBox(width: 12),
                                   InkWell(
-                                    onTap: _sendMessage,
+                                    onTap: _isSending ? null : _sendMessage,
                                     child: Container(
                                       padding: const EdgeInsets.all(12),
                                       decoration: BoxDecoration(
-                                        color: AppColors.primary,
+                                        color: _isSending ? AppColors.textSecondary : AppColors.primary,
                                         shape: BoxShape.circle,
                                         boxShadow: [
-                                          BoxShadow(
-                                            color: AppColors.primary.withValues(
-                                              alpha: 0.4,
+                                          if (!_isSending)
+                                            BoxShadow(
+                                              color: AppColors.primary.withValues(
+                                                alpha: 0.4,
+                                              ),
+                                              blurRadius: 6,
+                                              offset: const Offset(0, 2),
                                             ),
-                                            blurRadius: 6,
-                                            offset: const Offset(0, 2),
-                                          ),
                                         ],
                                       ),
-                                      child: const Icon(
-                                        LucideIcons.send,
-                                        color: Colors.white,
-                                        size: 18,
-                                      ),
+                                      child: _isSending 
+                                        ? const SizedBox(
+                                            width: 18, 
+                                            height: 18, 
+                                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2)
+                                          )
+                                        : const Icon(
+                                            LucideIcons.send,
+                                            color: Colors.white,
+                                            size: 18,
+                                          ),
                                     ),
                                   ),
                                 ],
@@ -416,3 +473,4 @@ class _ShiftNotesScreenState extends State<ShiftNotesScreen> {
     );
   }
 }
+

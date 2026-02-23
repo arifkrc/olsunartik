@@ -1,3 +1,4 @@
+import '../../../../core/models/paged_result.dart';
 import '../../domain/entities/palet_giris_form.dart';
 import '../../domain/repositories/i_palet_giris_repository.dart';
 import '../datasources/palet_giris_remote_datasource.dart';
@@ -7,6 +8,30 @@ class PaletGirisRepositoryImpl implements IPaletGirisRepository {
   final PaletGirisRemoteDataSource _remoteDataSource;
 
   PaletGirisRepositoryImpl(this._remoteDataSource);
+
+  @override
+  Future<PagedResult<PaletGirisForm>> getForms({
+    int pageNumber = 1,
+    int pageSize = 10,
+    DateTime? startDate,
+    DateTime? endDate,
+  }) async {
+    final pagedDtos = await _remoteDataSource.getPaginated(
+      pageNumber: pageNumber,
+      pageSize: pageSize,
+      startDate: startDate,
+      endDate: endDate,
+    );
+    return PagedResult<PaletGirisForm>(
+      items: pagedDtos.items.map((dto) => dto.toEntity()).toList(),
+      totalCount: pagedDtos.totalCount,
+      pageNumber: pagedDtos.pageNumber,
+      pageSize: pagedDtos.pageSize,
+      totalPages: pagedDtos.totalPages,
+      hasNextPage: pagedDtos.hasNextPage,
+      hasPreviousPage: pagedDtos.hasPreviousPage,
+    );
+  }
 
   @override
   Future<List<PaletGirisForm>> getAll() async {

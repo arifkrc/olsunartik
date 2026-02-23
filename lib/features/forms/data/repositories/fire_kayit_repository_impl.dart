@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../../../../core/models/paged_result.dart';
 import '../../domain/entities/fire_kayit_formu.dart';
 import '../../domain/repositories/i_fire_kayit_repository.dart';
 import '../datasources/fire_kayit_remote_datasource.dart';
@@ -10,16 +11,29 @@ class FireKayitRepositoryImpl implements IFireKayitRepository {
   FireKayitRepositoryImpl(this._remoteDataSource);
 
   @override
-  Future<List<FireKayitFormu>> getForms({
+  Future<PagedResult<FireKayitFormu>> getForms({
     int pageNumber = 1,
     int pageSize = 10,
+    DateTime? startDate,
+    DateTime? endDate,
+    int? vardiyaId,
   }) async {
-    // Here we can implement offline caching strategy later
-    final dtos = await _remoteDataSource.getForms(
+    final pagedDtos = await _remoteDataSource.getForms(
       pageNumber: pageNumber,
       pageSize: pageSize,
+      startDate: startDate,
+      endDate: endDate,
+      vardiyaId: vardiyaId,
     );
-    return dtos.map((dto) => dto.toEntity()).toList();
+    return PagedResult<FireKayitFormu>(
+      items: pagedDtos.items.map((dto) => dto.toEntity()).toList(),
+      totalCount: pagedDtos.totalCount,
+      pageNumber: pagedDtos.pageNumber,
+      pageSize: pagedDtos.pageSize,
+      totalPages: pagedDtos.totalPages,
+      hasNextPage: pagedDtos.hasNextPage,
+      hasPreviousPage: pagedDtos.hasPreviousPage,
+    );
   }
 
   @override

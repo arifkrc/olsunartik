@@ -49,7 +49,7 @@ class LookupRemoteDataSource {
   }
 
   Future<void> delete(String endpoint, int id) async {
-    // Assuming backend will have a delete endpoint, if not this might throw a 404/405
-    await _dio.delete('${ApiConstants.lookupBase}/$endpoint/$id');
+    // Soft delete using PUT request
+    await _dio.put('${ApiConstants.lookupBase}/$endpoint/$id', data: {'isActive': false});
   }
 }

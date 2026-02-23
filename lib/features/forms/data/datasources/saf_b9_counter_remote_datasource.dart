@@ -1,3 +1,4 @@
+import '../../../../core/models/paged_result.dart';
 import 'package:dio/dio.dart';
 import '../models/saf_b9_counter_entry_dto.dart';
 
@@ -5,6 +6,32 @@ class SafB9CounterRemoteDataSource {
   final Dio _dio;
 
   SafB9CounterRemoteDataSource(this._dio);
+
+  Future<PagedResult<SAFBResponseDto>> getForms({
+    int pageNumber = 1,
+    int pageSize = 10,
+    DateTime? startDate,
+    DateTime? endDate,
+    int? vardiyaId,
+  }) async {
+    final response = await _dio.get(
+      'safb9',
+      queryParameters: {
+        'pageNumber': pageNumber,
+        'pageSize': pageSize,
+        if (startDate != null) 'startDate': startDate.toUtc().toIso8601String(),
+        if (endDate != null) 'endDate': endDate.toUtc().toIso8601String(),
+        if (vardiyaId != null) 'vardiyaId': vardiyaId,
+      },
+    );
+    if (response.data['success'] == true) {
+      return PagedResult<SAFBResponseDto>.fromJson(
+        response.data['data'],
+        (j) => SAFBResponseDto.fromJson(j),
+      );
+    }
+    throw Exception(response.data['message'] ?? 'Veriler alınamadı');
+  }
 
   Future<String> create(SAFBRequestDto request) async {
     try {

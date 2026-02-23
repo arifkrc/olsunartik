@@ -4,5 +4,6 @@ abstract class IAuditRepository {
   Future<List<AuditAction>> getMyActions({
     required int pageNumber,
     required int pageSize,
+    String? varlikTipi,
   });
 }

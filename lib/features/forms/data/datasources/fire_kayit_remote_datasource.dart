@@ -1,4 +1,5 @@
 import 'dart:io';
+import '../../../../core/models/paged_result.dart';
 import 'package:dio/dio.dart';
 import '../models/fire_kayit_formu_dto.dart';
 
@@ -7,25 +8,34 @@ class FireKayitRemoteDataSource {
 
   FireKayitRemoteDataSource(this._dio);
 
-  Future<List<FireKayitResponseDto>> getForms({
+  Future<PagedResult<FireKayitResponseDto>> getForms({
     int pageNumber = 1,
     int pageSize = 10,
+    DateTime? startDate,
+    DateTime? endDate,
+    int? vardiyaId,
   }) async {
     try {
       final response = await _dio.get(
         'firekayitformu',
-        queryParameters: {'pageNumber': pageNumber, 'pageSize': pageSize},
+        queryParameters: {
+          'pageNumber': pageNumber,
+          'pageSize': pageSize,
+          if (startDate != null) 'startDate': startDate.toUtc().toIso8601String(),
+          if (endDate != null) 'endDate': endDate.toUtc().toIso8601String(),
+          if (vardiyaId != null) 'vardiyaId': vardiyaId,
+        },
       );
 
       if (response.data['success'] == true) {
-        final List<dynamic> items = response.data['data']['items'] ?? [];
-        return items.map((e) => FireKayitResponseDto.fromJson(e)).toList();
+        return PagedResult<FireKayitResponseDto>.fromJson(
+          response.data['data'],
+          (e) => FireKayitResponseDto.fromJson(e),
+        );
       } else {
-        // Fallback if structure is different or success is false
         throw Exception(response.data['message'] ?? 'Failed to fetch forms');
       }
     } catch (e) {
-      // In a real app, you might want to return a local cache or throw a specific Failure
       rethrow;
     }
   }
