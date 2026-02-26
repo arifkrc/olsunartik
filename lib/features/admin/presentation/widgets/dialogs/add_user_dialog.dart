@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../../../../../core/constants/app_colors.dart';
 import '../../providers/master_data_provider.dart';
+import '../../providers/user_management_provider.dart';
 import '../../../../auth/presentation/providers/auth_providers.dart';
 
 
@@ -254,11 +255,12 @@ class _AddUserDialogState extends ConsumerState<AddUserDialog> {
         await authRepo.register(
           kullaniciAdi: _usernameController.text,
           parola: _passwordController.text,
-          hesapSeviyesi: _selectedRole.toString(),
+          hesapSeviyesi: _selectedRole,
           personelId: _selectedPersonelId,
         );
 
         if (mounted) {
+          ref.invalidate(usersListProvider);
           Navigator.of(context).pop();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(

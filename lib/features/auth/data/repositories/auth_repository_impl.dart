@@ -34,7 +34,7 @@ class AuthRepositoryImpl implements IAuthRepository {
   Future<User> register({
     required String kullaniciAdi,
     required String parola,
-    required String hesapSeviyesi,
+    required int hesapSeviyesi,
     int? personelId,
   }) async {
     return await _remoteDataSource.register(

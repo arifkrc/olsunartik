@@ -1,4 +1,4 @@
-import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
@@ -20,7 +20,7 @@ import '../dialogs/edit_forms/edit_palet_giris_dialog.dart';
 import '../dialogs/edit_forms/edit_saf_b9_dialog.dart';
 import '../../../forms/presentation/palet_giris_kalite_screen.dart';
 import '../providers/report_edit_providers.dart';
-import '../../../../core/models/paged_result.dart';
+
 import '../../../forms/domain/entities/quality_approval_form.dart';
 import '../../../forms/domain/entities/final_kontrol_form.dart';
 import '../../../forms/domain/entities/fire_kayit_formu.dart';
@@ -654,6 +654,7 @@ class _ReportEditTabState extends ConsumerState<ReportEditTab> {
 
   void _showDeleteDialog(String type, dynamic item, int? id) {
     if (id == null) return;
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
     showDialog(
       context: context,
       builder: (context) => DeleteConfirmationDialog(
@@ -687,23 +688,19 @@ class _ReportEditTabState extends ConsumerState<ReportEditTab> {
 
             ref.invalidate(reportListProvider);
 
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Kayıt başarıyla silindi (ID: $id)'),
-                  backgroundColor: AppColors.success,
-                ),
-              );
-            }
+            scaffoldMessenger.showSnackBar(
+              SnackBar(
+                content: Text('Kayıt başarıyla silindi (ID: $id)'),
+                backgroundColor: AppColors.success,
+              ),
+            );
           } catch (e) {
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                SnackBar(
-                  content: Text('Silme hatası: $e'),
-                  backgroundColor: AppColors.error,
-                ),
-              );
-            }
+            scaffoldMessenger.showSnackBar(
+              SnackBar(
+                content: Text('Silme hatası: $e'),
+                backgroundColor: AppColors.error,
+              ),
+            );
           }
         },
       ),

@@ -216,17 +216,15 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
                 await ref.read(fireAnalizRepositoryProvider).hesapla(dateStr);
                 // Fetch the new updated data
                 await ref.read(scrapAnalysisProvider.notifier).fetchDashboardData(_selectedFilterDate ?? DateTime.now());
-                if (context.mounted) {
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(content: Text('Analiz başarıyla yeniden hesaplandı ve güncellendi.')),
-                  );
-                }
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Analiz başarıyla yeniden hesaplandı ve güncellendi.')),
+                );
              } catch (e) {
-                if (context.mounted) {
-                   ScaffoldMessenger.of(context).showSnackBar(
-                     SnackBar(content: Text('Analiz hesaplanırken hata oluştu: $e')),
-                   );
-                }
+                if (!mounted) return;
+                ScaffoldMessenger.of(context).showSnackBar(
+                  SnackBar(content: Text('Analiz hesaplanırken hata oluştu: $e')),
+                );
              }
           },
           icon: const Icon(LucideIcons.refreshCcw, size: 18, color: Colors.white),

@@ -6,7 +6,7 @@ import '../../../../../core/widgets/forms/sarj_no_picker.dart';
 import '../../providers/report_edit_providers.dart';
 import '../../../../forms/presentation/providers/fire_kayit_providers.dart';
 import '../../providers/master_data_provider.dart';
-import '../../../domain/entities/master_data_item.dart';
+
 
 class EditFireKayitDialog extends ConsumerStatefulWidget {
   final Map<String, dynamic> data;

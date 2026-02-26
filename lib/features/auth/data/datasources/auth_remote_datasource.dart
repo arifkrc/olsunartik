@@ -24,7 +24,7 @@ class AuthRemoteDataSource {
   Future<UserDto> register({
     required String kullaniciAdi,
     required String parola,
-    required String hesapSeviyesi,
+    required int hesapSeviyesi,
     int? personelId,
   }) async {
     final response = await _dio.post(

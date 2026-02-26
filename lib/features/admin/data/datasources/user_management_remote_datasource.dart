@@ -43,7 +43,7 @@ class UserManagementRemoteDataSource {
   Future<KullaniciDto> updatePersonnel(
       int id, UpdatePersonnelRequest request) async {
     final response = await dio.put(
-      '${ApiConstants.apiBase}/kullanici/$id/personel',
+      '${ApiConstants.apiBase}/lookup/personeller/$id',
       data: request.toJson(),
     );
     final dynamic data = response.data['data'] ?? response.data;
@@ -57,8 +57,16 @@ class UserManagementRemoteDataSource {
     );
   }
 
-  Future<void> deleteUser(int id) async {
-    // Soft delete using PUT request
-    await dio.put('${ApiConstants.apiBase}/kullanici/$id', data: {'isActive': false});
+  Future<void> deleteUser(KullaniciDto user) async {
+    // Soft delete using PUT request with specialized flat payload
+    await dio.put(
+      '${ApiConstants.apiBase}/kullanici/${user.id}',
+      data: {
+        'kullaniciAdi': user.kullaniciAdi,
+        'hesapSeviyesi': user.hesapSeviyesi,
+        'isActive': false,
+        'personelId': user.personelId ?? 0,
+      },
+    );
   }
 }

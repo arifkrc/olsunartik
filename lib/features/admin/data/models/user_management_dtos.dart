@@ -8,6 +8,8 @@ class KullaniciDto {
   final String? personelAdi;
   final String? telefonNo;
   final DateTime? dogumTarihi;
+  final String? yakinTelefonNo;
+  final String? yakinlikDerecesi;
 
   KullaniciDto({
     required this.id,
@@ -19,6 +21,8 @@ class KullaniciDto {
     this.personelAdi,
     this.telefonNo,
     this.dogumTarihi,
+    this.yakinTelefonNo,
+    this.yakinlikDerecesi,
   });
 
   factory KullaniciDto.fromJson(Map<String, dynamic> json) {
@@ -34,6 +38,8 @@ class KullaniciDto {
       dogumTarihi: json['dogumTarihi'] != null 
           ? DateTime.parse(json['dogumTarihi'] as String) 
           : null,
+      yakinTelefonNo: json['yakinTelefonNo'] as String?,
+      yakinlikDerecesi: json['yakinlikDerecesi'] as String?,
     );
   }
 }
@@ -72,24 +78,24 @@ class PaginatedResponse<T> {
 }
 
 class UpdateAccountRequest {
-  final String? kullaniciAdi;
-  final int? hesapSeviyesi;
-  final bool? isActive;
+  final String kullaniciAdi;
+  final int hesapSeviyesi;
+  final bool isActive;
   final int? personelId;
 
   UpdateAccountRequest({
-    this.kullaniciAdi,
-    this.hesapSeviyesi,
-    this.isActive,
+    required this.kullaniciAdi,
+    required this.hesapSeviyesi,
+    required this.isActive,
     this.personelId,
   });
 
   Map<String, dynamic> toJson() {
     return {
-      if (kullaniciAdi != null) 'kullaniciAdi': kullaniciAdi,
-      if (hesapSeviyesi != null) 'hesapSeviyesi': hesapSeviyesi,
-      if (isActive != null) 'isActive': isActive,
-      if (personelId != null) 'personelId': personelId,
+      'kullaniciAdi': kullaniciAdi,
+      'hesapSeviyesi': hesapSeviyesi,
+      'isActive': isActive,
+      'personelId': personelId ?? 0,
     };
   }
 }
@@ -98,11 +104,15 @@ class UpdatePersonnelRequest {
   final String adSoyad;
   final String? telefonNo;
   final String? dogumTarihi;
+  final String? yakinTelefonNo;
+  final String? yakinlikDerecesi;
 
   UpdatePersonnelRequest({
     required this.adSoyad,
     this.telefonNo,
     this.dogumTarihi,
+    this.yakinTelefonNo,
+    this.yakinlikDerecesi,
   });
 
   Map<String, dynamic> toJson() {
@@ -110,6 +120,8 @@ class UpdatePersonnelRequest {
       'adSoyad': adSoyad,
       if (telefonNo != null) 'telefonNo': telefonNo,
       if (dogumTarihi != null) 'dogumTarihi': dogumTarihi,
+      if (yakinTelefonNo != null) 'yakinTelefonNo': yakinTelefonNo,
+      if (yakinlikDerecesi != null) 'yakinlikDerecesi': yakinlikDerecesi,
     };
   }
 }

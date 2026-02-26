@@ -82,9 +82,9 @@ class UserManagementRepositoryImpl implements UserManagementRepository {
   }
 
   @override
-  Future<ApiResult<void>> deleteUser(int id) async {
+  Future<ApiResult<void>> deleteUser(KullaniciDto user) async {
     try {
-      await remoteDataSource.deleteUser(id);
+      await remoteDataSource.deleteUser(user);
       return ApiResult(success: true, data: null);
     } catch (e) {
       return _handleError(e);

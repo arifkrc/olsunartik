@@ -6,7 +6,7 @@ abstract class IAuthRepository {
   Future<User> register({
     required String kullaniciAdi,
     required String parola,
-    required String hesapSeviyesi,
+    required int hesapSeviyesi,
     int? personelId,
   });
   Future<User> getCurrentUser();

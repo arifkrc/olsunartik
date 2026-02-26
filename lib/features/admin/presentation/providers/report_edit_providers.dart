@@ -1,12 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/models/paged_result.dart';
-import '../../../forms/domain/repositories/i_quality_approval_repository.dart';
-import '../../../forms/domain/repositories/i_final_kontrol_repository.dart';
-import '../../../forms/domain/repositories/i_fire_kayit_repository.dart';
-import '../../../forms/domain/repositories/i_rework_repository.dart';
-import '../../../forms/domain/repositories/i_giris_kalite_kontrol_repository.dart';
-import '../../../forms/domain/repositories/i_palet_giris_repository.dart';
-import '../../../forms/domain/repositories/i_saf_b9_counter_repository.dart';
 import '../../../forms/presentation/providers/quality_approval_providers.dart';
 import '../../../forms/presentation/providers/final_kontrol_providers.dart';
 import '../../../forms/presentation/providers/fire_kayit_providers.dart';

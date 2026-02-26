@@ -24,6 +24,8 @@ class _EditUserDialogState extends ConsumerState<EditUserDialog> {
   final _kullaniciAdiController = TextEditingController();
   final _fullNameController = TextEditingController();
   final _phoneController = TextEditingController();
+  final _yakinPhoneController = TextEditingController();
+  final _yakinlikController = TextEditingController();
   DateTime? _selectedDate;
   
   bool _isLoading = false;
@@ -37,6 +39,8 @@ class _EditUserDialogState extends ConsumerState<EditUserDialog> {
     _kullaniciAdiController.text = widget.user.kullaniciAdi;
     _fullNameController.text = widget.user.personelAdi ?? '';
     _phoneController.text = widget.user.telefonNo ?? '';
+    _yakinPhoneController.text = widget.user.yakinTelefonNo ?? '';
+    _yakinlikController.text = widget.user.yakinlikDerecesi ?? '';
     _selectedDate = widget.user.dogumTarihi;
   }
 
@@ -45,6 +49,8 @@ class _EditUserDialogState extends ConsumerState<EditUserDialog> {
     _kullaniciAdiController.dispose();
     _fullNameController.dispose();
     _phoneController.dispose();
+    _yakinPhoneController.dispose();
+    _yakinlikController.dispose();
     super.dispose();
   }
 
@@ -268,6 +274,43 @@ class _EditUserDialogState extends ConsumerState<EditUserDialog> {
                     ),
                   ),
                 ),
+                const SizedBox(height: 16),
+
+                // Yakın Telefon No
+                TextFormField(
+                  controller: _yakinPhoneController,
+                  style: const TextStyle(color: AppColors.textMain),
+                  keyboardType: TextInputType.phone,
+                  decoration: InputDecoration(
+                    labelText: 'Yakın Telefon Numarası',
+                    labelStyle: const TextStyle(color: AppColors.textSecondary),
+                    prefixIcon: const Icon(LucideIcons.phoneCall, size: 18),
+                    filled: true,
+                    fillColor: AppColors.background,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+
+                // Yakınlık Derecesi
+                TextFormField(
+                  controller: _yakinlikController,
+                  style: const TextStyle(color: AppColors.textMain),
+                  decoration: InputDecoration(
+                    labelText: 'Yakınlık Derecesi',
+                    labelStyle: const TextStyle(color: AppColors.textSecondary),
+                    prefixIcon: const Icon(LucideIcons.heart, size: 18),
+                    filled: true,
+                    fillColor: AppColors.background,
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                      borderSide: const BorderSide(color: AppColors.border),
+                    ),
+                  ),
+                ),
                 const SizedBox(height: 24),
 
                 // Buttons
@@ -335,7 +378,7 @@ class _EditUserDialogState extends ConsumerState<EditUserDialog> {
       kullaniciAdi: _kullaniciAdiController.text,
       hesapSeviyesi: _selectedPermission,
       isActive: _isActive,
-      // personelId is kept identical to before, omitted so it remains attached to same personnel
+      personelId: widget.user.personelId,
     );
 
     // 2. Update Personnel
@@ -343,28 +386,43 @@ class _EditUserDialogState extends ConsumerState<EditUserDialog> {
       adSoyad: _fullNameController.text,
       telefonNo: _phoneController.text.isNotEmpty ? _phoneController.text : null,
       dogumTarihi: _selectedDate != null ? DateFormat('yyyy-MM-dd').format(_selectedDate!) : null,
+      yakinTelefonNo: _yakinPhoneController.text.isNotEmpty ? _yakinPhoneController.text : null,
+      yakinlikDerecesi: _yakinlikController.text.isNotEmpty ? _yakinlikController.text : null,
     );
 
     // Run both updates
     final accountResult = await repository.updateAccount(widget.user.id, accountRequest);
     
-    // Personnel API may require careful chaining if account fails, but doing concurrently/sequential is fine
+    // Personnel API may require careful chaining if account fails
     if (accountResult.success) {
-      final personnelResult = await repository.updatePersonnel(widget.user.id, personnelRequest);
-      
-      if (personnelResult.success) {
+      if (widget.user.personelId != null) {
+        final personnelResult = await repository.updatePersonnel(widget.user.personelId!, personnelRequest);
+        
+        if (personnelResult.success) {
+          if (!mounted) return;
+          ref.invalidate(usersListProvider);
+          Navigator.of(context).pop();
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Kullanıcı ve personel bilgileri başarıyla güncellendi'),
+              backgroundColor: AppColors.duzceGreen,
+            ),
+          );
+        } else {
+          _showError('Personel güncellenirken hata: ${personnelResult.message ?? 'Hata'}');
+        }
+      } else {
+        // Only account updated
         if (!mounted) return;
         ref.invalidate(usersListProvider);
         Navigator.of(context).pop();
-        
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Kullanıcı başarıyla güncellendi'),
+            content: Text('Hesap bilgileri başarıyla güncellendi (Bağlı personel bulunamadı)'),
             backgroundColor: AppColors.duzceGreen,
           ),
         );
-      } else {
-        _showError('Personel güncellenirken hata: ${personnelResult.message ?? 'Hata'}');
       }
     } else {
       _showError('Hesap güncellenirken hata: ${accountResult.message ?? 'Hata'}');

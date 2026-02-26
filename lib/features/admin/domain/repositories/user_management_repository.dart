@@ -18,5 +18,5 @@ abstract class UserManagementRepository {
   Future<ApiResult<void>> changePassword(
       int id, ChangePasswordRequest request);
 
-  Future<ApiResult<void>> deleteUser(int id);
+  Future<ApiResult<void>> deleteUser(KullaniciDto user);
 }
