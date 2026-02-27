@@ -19,7 +19,7 @@ abstract class UretimBilgisiBulkItemDto with _$UretimBilgisiBulkItemDto {
     required String uretimTarihi,
     required int urunId,
     required String dokumhaneAdi,
-    required int uretimAdeti,
+    required int tornaAdeti,
     int? delikAdeti,
   }) = _UretimBilgisiBulkItemDto;
 

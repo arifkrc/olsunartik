@@ -114,6 +114,55 @@ class MasterDataNotifier extends AsyncNotifier<List<MasterDataItem>> {
       yakinlikDerecesi: yakinlikDerecesi,
     );
   }
+  Map<String, dynamic> _mapMasterDataItemToMap(MasterDataItem item) {
+    Map<String, dynamic> data = {
+      'id': item.id,
+      'isActive': item.isActive,
+    };
+
+    switch (item.category) {
+      case 'operasyonlar':
+        data['operasyonKodu'] = item.code;
+        data['operasyonAdi'] = item.description;
+        break;
+      case 'operatorler':
+        data['adSoyad'] = item.code;
+        data['sicilNo'] = item.description;
+        break;
+      case 'bolgeler':
+        data['bolgeKodu'] = item.code;
+        data['bolgeAdi'] = item.description;
+        break;
+      case 'ret-kodlari':
+        data['kod'] = item.code;
+        data['aciklama'] = item.description;
+        break;
+      case 'tezgahlar':
+        data['tezgahNo'] = item.code;
+        data['tezgahTuru'] = item.description;
+        break;
+      case 'urunler':
+      case 'ham-urunler':
+        data['urunKodu'] = item.code;
+        data['urunAdi'] = item.description;
+        data['urunTuru'] = item.productType;
+        break;
+      case 'personeller':
+        data['adSoyad'] = item.code;
+        data['telefonNo'] = item.description;
+        if (item.dogumTarihi != null) {
+          data['dogumTarihi'] = item.dogumTarihi!.toUtc().toIso8601String();
+        }
+        data['yakinTelefonNo'] = item.yakinTelefonNo;
+        data['yakinlikDerecesi'] = item.yakinlikDerecesi;
+        break;
+      default:
+        data['code'] = item.code;
+        data['description'] = item.description;
+    }
+
+    return data;
+  }
 
   Future<void> addItem({
     required String category,
@@ -132,17 +181,20 @@ class MasterDataNotifier extends AsyncNotifier<List<MasterDataItem>> {
     }
   }
 
-  Future<void> updateItem(
-    int id, {
-    required String category,
+  Future<void> updateItem({
+    required MasterDataItem item,
     required Map<String, dynamic> payload,
   }) async {
     final repository = ref.read(lookupRepositoryProvider);
     state = const AsyncValue.loading();
     try {
-      await repository.update(category, id, payload);
+      // Merge current item data with changes to ensure all required fields are sent
+      final currentMap = _mapMasterDataItemToMap(item);
+      final fullPayload = {...currentMap, ...payload};
+      
+      await repository.update(item.category, item.id, fullPayload);
       ref.invalidateSelf();
-      if (category == 'personeller') {
+      if (item.category == 'personeller') {
         ref.invalidate(personnelListProvider);
       }
     } catch (e, stack) {
@@ -150,13 +202,16 @@ class MasterDataNotifier extends AsyncNotifier<List<MasterDataItem>> {
     }
   }
 
-  Future<void> deleteItem(int id, String category) async {
+  Future<void> deleteItem(MasterDataItem item) async {
     final repository = ref.read(lookupRepositoryProvider);
     state = const AsyncValue.loading();
     try {
-      await repository.delete(category, id);
+      // Soft delete: Send full object with isActive: false
+      final payload = _mapMasterDataItemToMap(item.copyWith(isActive: false));
+      
+      await repository.delete(item.category, item.id, payload);
       ref.invalidateSelf();
-      if (category == 'personeller') {
+      if (item.category == 'personeller') {
         ref.invalidate(personnelListProvider);
       }
     } catch (e, stack) {
@@ -217,6 +272,9 @@ final personnelListProvider = FutureProvider<List<MasterDataItem>>((ref) async {
       category: 'personeller',
       code: code,
       description: json['telefonNo']?.toString(),
+      dogumTarihi: json['dogumTarihi'] != null ? DateTime.tryParse(json['dogumTarihi'].toString()) : null,
+      yakinTelefonNo: json['yakinTelefonNo']?.toString(),
+      yakinlikDerecesi: json['yakinlikDerecesi']?.toString(),
     );
   }).toList();
 });

@@ -82,7 +82,7 @@ class ExcelPreviewDialog extends StatelessWidget {
                               style: const TextStyle(color: AppColors.textMain, fontSize: 13),
                             ),
                             subtitle: Text(
-                              'Adet: ${items[i].uretimAdeti} | Fabrika: ${items[i].dokumhaneAdi}',
+                              'Torna: ${items[i].tornaAdeti} | Fabrika: ${items[i].dokumhaneAdi}',
                               style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
                             ),
                           ),

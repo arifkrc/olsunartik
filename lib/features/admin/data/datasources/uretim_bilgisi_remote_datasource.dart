@@ -22,4 +22,21 @@ class UretimBilgisiRemoteDataSource {
       throw Exception('Beklenmeyen bir hata oluştu: $e');
     }
   }
+
+  Future<void> updateUretimBilgisi(int id, int tornaAdeti) async {
+    try {
+      final response = await _dioClient.put(
+        'uretim-bilgisi/$id',
+        data: {'tornaAdeti': tornaAdeti},
+      );
+
+      if (response.statusCode != 200) {
+        throw Exception('Üretim bilgisi güncelleme başarısız oldu: ${response.statusCode}');
+      }
+    } on DioException catch (e) {
+      throw Exception('Üretim bilgisi güncelleme hatası: ${e.message}');
+    } catch (e) {
+      throw Exception('Beklenmeyen bir hata oluştu: $e');
+    }
+  }
 }

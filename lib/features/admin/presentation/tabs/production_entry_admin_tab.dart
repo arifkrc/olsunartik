@@ -102,7 +102,7 @@ class _ProductionEntryAdminTabState
             if (bulkItemsMap.containsKey(key)) {
               final existing = bulkItemsMap[key]!;
               bulkItemsMap[key] = existing.copyWith(
-                uretimAdeti: existing.uretimAdeti + item.quantity,
+                tornaAdeti: existing.tornaAdeti + item.quantity,
                 delikAdeti: (existing.delikAdeti ?? 0) + item.holeQty,
               );
             } else {
@@ -110,7 +110,7 @@ class _ProductionEntryAdminTabState
                 uretimTarihi: tarih,
                 urunId: urunId,
                 dokumhaneAdi: fabrika,
-                uretimAdeti: item.quantity,
+                tornaAdeti: item.quantity,
                 delikAdeti: item.holeQty,
               );
             }
@@ -450,16 +450,28 @@ class _ProductionEntryAdminTabState
                     ),
                     const SizedBox(width: 16),
                     ElevatedButton.icon(
-                      onPressed: () {
+                      onPressed: () async {
                         final value = int.tryParse(_productionController.text);
-                        if (value != null && value > 0) {
-                          // TODO: Implement manual entry logic in provider if needed,
-                          // currently AnalysisScreen used local state for this.
-                          // We might need to update the provider to accept this value.
-                          _showSuccess('Üretim adeti kaydedildi: $value');
-                          // For now, we just show success as the provider logic for manual entry
-                          // wasn't fully interconnected in the previous file (it just set a local state).
-                          // If we need to persist this, we should add a method to ScrapAnalysisNotifier.
+                        if (value != null && value >= 0) {
+                          setState(() {
+                            _isUploading = true;
+                          });
+                          try {
+                            // Call fetchDashboardData with forceCalculate=true and the manual production count
+                            await ref.read(scrapAnalysisProvider.notifier).fetchDashboardData(
+                              DateTime.now(),
+                              forceCalculate: true,
+                              frenbuUretimAdeti: value,
+                            );
+                            _showSuccess('FRENBU Üretim adeti kaydedildi ve analiz güncellendi: $value');
+                            _productionController.clear();
+                          } catch (e) {
+                            _showError('Analiz güncellenirken hata oluştu: $e');
+                          } finally {
+                            setState(() {
+                              _isUploading = false;
+                            });
+                          }
                         } else {
                           _showError('Geçerli bir adet giriniz.');
                         }

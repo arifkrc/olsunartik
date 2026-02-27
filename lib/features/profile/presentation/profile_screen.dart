@@ -6,11 +6,13 @@ import 'package:intl/intl.dart';
 import 'package:intl/date_symbol_data_local.dart';
 import '../../../core/constants/app_colors.dart';
 import '../../../core/widgets/sidebar_navigation.dart';
+import 'package:collection/collection.dart';
 import '../../auth/presentation/login_screen.dart';
 import '../../auth/presentation/providers/auth_providers.dart';
 import '../../chat/presentation/shift_notes_screen.dart';
 import '../../history/presentation/history_screen.dart';
 import '../../forms/presentation/forms_screen.dart';
+import '../../admin/presentation/providers/master_data_provider.dart';
 
 class ProfileScreen extends ConsumerWidget {
   const ProfileScreen({super.key});
@@ -18,6 +20,7 @@ class ProfileScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final currentUserAsync = ref.watch(currentUserProvider);
+    final personellerAsync = ref.watch(personnelListProvider);
 
     // Tarih formatı için ilk harfi büyük yapmak gerekebilir
     initializeDateFormatting('tr_TR', null);
@@ -248,38 +251,67 @@ class ProfileScreen extends ConsumerWidget {
                                               height: 32,
                                               color: AppColors.border,
                                             ),
-                                            _buildInfoRow(
-                                              icon: LucideIcons.phone,
-                                              label: 'Telefon Numarası',
-                                              value:
-                                                  currentUser.phoneNumber ??
-                                                  '-',
-                                            ),
-                                            const Divider(
-                                              height: 32,
-                                              color: AppColors.border,
-                                            ),
-                                            _buildInfoRow(
-                                              icon: LucideIcons.calendar,
-                                              label: 'Doğum Tarihi',
-                                              value:
-                                                  currentUser.birthDate != null
-                                                  ? dateFormat.format(
-                                                      currentUser.birthDate!,
-                                                    )
-                                                  : '-',
-                                            ),
-                                            const Divider(
-                                              height: 32,
-                                              color: AppColors.border,
-                                            ),
-                                            _buildInfoRow(
-                                              icon: LucideIcons.heartPulse,
-                                              label: 'Acil Durum Yakını',
-                                              value:
-                                                  currentUser
-                                                      .emergencyContact ??
-                                                  '-',
+                                            personellerAsync.when(
+                                              data: (personeller) {
+                                                final personel = personeller.firstWhereOrNull((p) => p.id == currentUser.personelId);
+                                                
+                                                return Column(
+                                                  children: [
+                                                    _buildInfoRow(
+                                                      icon: LucideIcons.badgeCheck,
+                                                      label: 'Personel Sicil No / Kod',
+                                                      value: personel?.code ?? '-',
+                                                    ),
+                                                    const Divider(
+                                                      height: 32,
+                                                      color: AppColors.border,
+                                                    ),
+                                                    _buildInfoRow(
+                                                      icon: LucideIcons.phone,
+                                                      label: 'Telefon Numarası',
+                                                      value: personel?.description ?? '-',
+                                                    ),
+                                                    const Divider(
+                                                      height: 32,
+                                                      color: AppColors.border,
+                                                    ),
+                                                    _buildInfoRow(
+                                                      icon: LucideIcons.calendar,
+                                                      label: 'Doğum Tarihi',
+                                                      value: personel?.dogumTarihi != null
+                                                          ? dateFormat.format(personel!.dogumTarihi!)
+                                                          : '-',
+                                                    ),
+                                                    const Divider(
+                                                      height: 32,
+                                                      color: AppColors.border,
+                                                    ),
+                                                    _buildInfoRow(
+                                                      icon: LucideIcons.heartPulse,
+                                                      label: 'Acil Durum Yakını',
+                                                      value: personel?.yakinTelefonNo ?? '-',
+                                                    ),
+                                                    const Divider(
+                                                      height: 32,
+                                                      color: AppColors.border,
+                                                    ),
+                                                    _buildInfoRow(
+                                                      icon: LucideIcons.info,
+                                                      label: 'Yakınlık Derecesi',
+                                                      value: personel?.yakinlikDerecesi ?? '-',
+                                                    ),
+                                                  ],
+                                                );
+                                              },
+                                              loading: () => const Center(child: Padding(
+                                                padding: EdgeInsets.all(16.0),
+                                                child: CircularProgressIndicator(strokeWidth: 2),
+                                              )),
+                                              error: (error, stack) => _buildInfoRow(
+                                                icon: LucideIcons.alertTriangle,
+                                                label: 'Personel Bilgisi',
+                                                value: 'Yüklenemedi',
+                                              ),
                                             ),
                                           ],
                                         ),

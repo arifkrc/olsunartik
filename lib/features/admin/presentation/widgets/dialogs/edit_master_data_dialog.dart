@@ -416,8 +416,7 @@ class _EditMasterDataDialogState extends ConsumerState<EditMasterDataDialog> {
       }
 
       ref.read(masterDataProvider.notifier).updateItem(
-            widget.item.id,
-            category: widget.item.category,
+            item: widget.item,
             payload: payload,
           );
 

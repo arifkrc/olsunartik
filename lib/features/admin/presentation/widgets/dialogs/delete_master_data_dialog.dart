@@ -176,7 +176,7 @@ class DeleteMasterDataDialog extends ConsumerWidget {
   }
 
   void _deleteItem(BuildContext context, WidgetRef ref) {
-    ref.read(masterDataProvider.notifier).deleteItem(item.id, item.category);
+    ref.read(masterDataProvider.notifier).deleteItem(item);
 
     Navigator.of(context).pop();
 

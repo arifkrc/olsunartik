@@ -27,14 +27,14 @@ class VardiyaNotuDto {
 
   factory VardiyaNotuDto.fromJson(Map<String, dynamic> json) {
     return VardiyaNotuDto(
-      id: json['id'] as int,
-      vardiyaId: json['vardiyaId'] as int,
-      vardiyaAdi: json['vardiyaAdi'] as String? ?? 'Bilinmeyen Vardiya',
+      id: json['id'] as int? ?? 0,
+      vardiyaId: json['vardiyaId'] as int? ?? 0,
+      vardiyaAdi: json['vardiyaAdi'] as String? ?? '',
       baslik: json['baslik'] as String? ?? '',
       notMetni: json['notMetni'] as String? ?? '',
       oncelikDerecesi: json['oncelikDerecesi'] as int? ?? 1,
       kullaniciId: json['kullaniciId'] as int? ?? 0,
-      kullaniciAdi: json['kullaniciAdi'] as String? ?? 'Bilinmeyen Kullanıcı',
+      kullaniciAdi: json['kullaniciAdi'] as String? ?? '',
       personelAdi: json['personelAdi'] as String? ?? '',
       olusturmaZamani: DateTime.parse(json['olusturmaZamani'] as String),
       guncellemeZamani: DateTime.parse(json['guncellemeZamani'] as String),

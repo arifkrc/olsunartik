@@ -6,21 +6,21 @@ part 'fire_analiz_dto.g.dart';
 @freezed
 abstract class FireAnalizDetayDto with _$FireAnalizDetayDto {
   const factory FireAnalizDetayDto({
-    required int id,
-    required String analizTarihi,
-    required int frenbuUretimAdeti,
-    required int frenbuFireAdeti,
-    required double frenbuFireOrani,
-    required int d2UretimAdeti,
-    required int d2FireAdeti,
-    required double d2FireOrani,
-    required int d3UretimAdeti,
-    required int d3FireAdeti,
-    required double d3FireOrani,
-    required int frenbuDelikAdeti,
-    required int d2DelikAdeti,
-    required int d3DelikAdeti,
-    required int toplamDelikAdeti,
+    @Default(0) int id,
+    @Default('') String analizTarihi,
+    @Default(0) int frenbuUretimAdeti,
+    @Default(0) int frenbuFireAdeti,
+    @Default(0) num frenbuFireOrani,
+    @Default(0) int d2UretimAdeti,
+    @Default(0) int d2FireAdeti,
+    @Default(0) num d2FireOrani,
+    @Default(0) int d3UretimAdeti,
+    @Default(0) int d3FireAdeti,
+    @Default(0) num d3FireOrani,
+    @Default(0) int frenbuDelikAdeti,
+    @Default(0) int d2DelikAdeti,
+    @Default(0) int d3DelikAdeti,
+    @Default(0) int toplamDelikAdeti,
     @Default([]) List<UrunDetayiDto> urunDetaylari,
     @Default([]) List<HataDagilimiDto> hataDagilimleri,
   }) = _FireAnalizDetayDto;
@@ -32,14 +32,14 @@ abstract class FireAnalizDetayDto with _$FireAnalizDetayDto {
 @freezed
 abstract class UrunDetayiDto with _$UrunDetayiDto {
   const factory UrunDetayiDto({
-    required int segment, // 1: Frenbu, 2: D2, 3: D3
-    required bool fireVar,
-    required String urunKodu,
-    required String urunTuru,
+    @Default(0) int segment, // 1: Frenbu, 2: D2, 3: D3
+    @Default(false) bool fireVar,
+    @Default('') String urunKodu,
+    @Default('') String urunTuru,
     String? urunAdi,
-    required int uretimAdeti,
-    required int fireAdeti,
-    required double fireOrani,
+    @Default(0) int uretimAdeti,
+    @Default(0) int fireAdeti,
+    @Default(0) num fireOrani,
     String? hataDetaylari, // Optional details
   }) = _UrunDetayiDto;
 
@@ -50,10 +50,10 @@ abstract class UrunDetayiDto with _$UrunDetayiDto {
 @freezed
 abstract class HataDagilimiDto with _$HataDagilimiDto {
   const factory HataDagilimiDto({
-    required String urunTuru, // Örneğin "Disk", "Kampana", "Porya"
-    required String hataKodu,
-    required int fireAdeti,
-    required double fireOrani,
+    @Default('') String urunTuru, // Örneğin "Disk", "Kampana", "Porya"
+    @Default('') String hataKodu,
+    @Default(0) int fireAdeti,
+    @Default(0) num fireOrani,
   }) = _HataDagilimiDto;
 
   factory HataDagilimiDto.fromJson(Map<String, dynamic> json) =>
@@ -64,6 +64,7 @@ abstract class HataDagilimiDto with _$HataDagilimiDto {
 abstract class FireAnalizHesaplaRequestDto with _$FireAnalizHesaplaRequestDto {
   const factory FireAnalizHesaplaRequestDto({
     required String analizTarihi,
+    int? frenbuUretimAdeti,
   }) = _FireAnalizHesaplaRequestDto;
 
   factory FireAnalizHesaplaRequestDto.fromJson(Map<String, dynamic> json) =>

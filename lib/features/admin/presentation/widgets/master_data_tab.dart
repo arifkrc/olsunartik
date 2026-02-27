@@ -431,16 +431,9 @@ class _MasterDataTabState extends ConsumerState<MasterDataTab> {
                 ),
                 onChanged: (value) {
                   ref.read(masterDataProvider.notifier).updateItem(
-                        item.id,
-                        category: item.category,
+                        item: item,
                         payload: {
                           'isActive': value,
-                          // Depending on the backend, we might need to send the whole object or just a patch.
-                          // Assuming we need to send the whole object for a typical PUT request, or at least the active status if it supports it.
-                          // We'll leave it simple; if backend requires full object, we'll need to adapt updateItem to take it.
-                          // Let's assume updateItem supports partial updates or we just send the updated status if the backend allows it.
-                          // In a real scenario, we'd probably call a specific `toggleActive` endpoint or send the full mapped object.
-                          // For now, let's just update the local state to prevent the error, or send a generic payload.
                         },
                       );
                 },

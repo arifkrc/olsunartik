@@ -22,20 +22,11 @@ class VardiyaNotlariRemoteDataSource {
       );
 
       final data = response.data;
-      // Depending on the wrapper, we extract the paged data either directly or from a 'data' object.
-      // Note: User prompt implies the plain pagination object is returned without wrapper, but sometimes there's a wrapper.
       if (data != null && data is Map<String, dynamic>) {
-        if (data.containsKey('success') && data['success'] == true) {
-           return PagedResult<VardiyaNotuDto>.fromJson(
-            data['data'],
-            (j) => VardiyaNotuDto.fromJson(j),
-          );
-        } else if (data.containsKey('items')) {
-            return PagedResult<VardiyaNotuDto>.fromJson(
-              data,
-              (j) => VardiyaNotuDto.fromJson(j),
-            );
-        }
+        return PagedResult<VardiyaNotuDto>.fromJson(
+          data,
+          (j) => VardiyaNotuDto.fromJson(j),
+        );
       }
       throw Exception('Vardiya notları alınamadı. (Bilinmeyen format)');
     } on DioException catch (e) {

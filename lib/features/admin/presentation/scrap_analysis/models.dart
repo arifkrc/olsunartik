@@ -75,7 +75,7 @@ class ScrapUploadBatch {
 class ShiftData {
   final String shiftName;
   final int scrapQty;
-  final double rate;
+  final num rate;
 
   ShiftData({
     required this.shiftName,
@@ -118,15 +118,15 @@ class ScrapDashboardData {
 
 class FactorySummary {
   final int d2ScrapDto;
-  final double d2Rate;
+  final num d2Rate;
   final int d2Turned;
 
   final int d3ScrapDto;
-  final double d3Rate;
+  final num d3Rate;
   final int d3Turned;
 
   final int frenbuScrapDto;
-  final double frenbuRate;
+  final num frenbuRate;
   final int frenbuTurned;
 
   FactorySummary({
@@ -144,7 +144,7 @@ class FactorySummary {
 
 class FactoryDailyScrap {
   final String factory; // D2, D3, FRENBU
-  final double rate;
+  final num rate;
   FactoryDailyScrap(this.factory, this.rate);
 }
 
@@ -169,7 +169,7 @@ class ScrapTableItem {
   final String productCode;
   final int productionQty;
   final int scrapQty;
-  final double scrapRate;
+  final num scrapRate;
   final List<ScrapDetail> details; // Added details list
 
   ScrapTableItem({
@@ -188,7 +188,7 @@ class DefectDistributionItem {
   final int drumScrap; // Kampana
   final int hubScrap; // Porya
   final int total;
-  final double rate;
+  final num rate;
 
   DefectDistributionItem({
     required this.defectName,

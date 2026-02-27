@@ -40,94 +40,97 @@ class ScrapAnalysisNotifier extends Notifier<ScrapAnalysisState> {
       for (var table in excel.tables.keys) {
         final sheet = excel.tables[table];
         if (sheet == null) continue;
+        print('PROCESSING SHEET: $table, Rows=${sheet.rows.length}');
 
         for (var row in sheet.rows) {
           if (row.isEmpty) continue;
+          
+          final rowLen = row.length;
+          final firstCell = _extractCellValue(row[0]?.value)?.toString().trim() ?? '';
+          final secondCell = rowLen > 1 ? _extractCellValue(row[1]?.value)?.toString().trim() ?? '' : '';
 
-          // Header Check (skip row if contains 'kod')
-          final firstCellVal = row[0]?.value?.toString() ?? '';
-          if (firstCellVal.toLowerCase().contains('tarih') ||
-              firstCellVal.toLowerCase().contains('kod')) {
+          if (rowLen < 2) continue;
+
+          final productCode = secondCell;
+          
+          // Skip if productCode is empty or is a header ('kod')
+          if (productCode.isEmpty || productCode.toLowerCase().contains('kod')) {
             continue;
           }
 
-          if (row.length < 4) continue; // Col A, B, C, D (Index 0, 1, 2, 3)
+          // Header Check for row[0] (skip row if explicitly 'tarih' or 'date')
+          if (firstCell.toLowerCase().contains('tarih') ||
+              firstCell.toLowerCase().contains('date')) {
+            continue;
+          }
 
-          // 0: Date (Optional, can extract if needed)
-          // 1: Product Code
-          // 2: Factory (D2, D3)
-          // 3: Quantity
-          // 4: Hole Quantity (Optional)
+          if (rowLen < 4) {
+            print('SKIPPING ROW: length=$rowLen (Expected 4+), Cell0=$firstCell, Cell1=$productCode');
+            continue;
+          }
 
           DateTime? date;
-        try {
-          final dateCell = row[0];
-          final dVal = _extractCellValue(dateCell?.value);
+          try {
+            final dateCell = row[0];
+            final dVal = _extractCellValue(dateCell?.value);
 
-          if (dVal is DateTime) {
-            date = dVal;
-          } else if (dVal is num) {
-            // Excel Serial Date (Days since 1900-01-01)
-            // 25569 is the offset between 1900 and 1970
-            date = DateTime(1899, 12, 30).add(Duration(days: dVal.toInt()));
-          } else if (dVal != null) {
-            final dateStr = dVal.toString().trim();
-            // Handle dd.MM.yyyy, dd/MM/yyyy, dd-MM-yyyy
-            final separators = ['.', '/', '-'];
-            for (var sep in separators) {
-              final parts = dateStr.split(sep);
-              if (parts.length == 4) { // Handle case where space or something adds extra parts
-                  // ...
-              }
-              if (parts.length == 3) {
-                try {
-                  int day = int.parse(parts[0]);
-                  int month = int.parse(parts[1]);
-                  int year = int.parse(parts[2]);
-                  
-                  if (year < 100) year += 2000;
-                  
-                  date = DateTime(year, month, day);
-                  break;
-                } catch (_) {}
+            if (dVal is DateTime) {
+              date = dVal;
+            } else if (dVal is num) {
+              date = DateTime(1899, 12, 30).add(Duration(days: dVal.toInt()));
+            } else if (dVal != null) {
+              var dateStr = dVal.toString().trim();
+              if (dateStr.isNotEmpty) {
+                if (dateStr.contains(' ')) {
+                  dateStr = dateStr.split(' ')[0];
+                } else if (dateStr.contains('T')) {
+                  dateStr = dateStr.split('T')[0];
+                }
+
+                final separators = ['.', '/', '-'];
+                for (var sep in separators) {
+                  if (dateStr.contains(sep)) {
+                    final parts = dateStr.split(sep);
+                    if (parts.length >= 3) {
+                      try {
+                        int day, month, year;
+                        if (parts[0].length == 4) {
+                          year = int.parse(parts[0]);
+                          month = int.parse(parts[1]);
+                          day = int.parse(parts[2]);
+                        } else {
+                          day = int.parse(parts[0]);
+                          month = int.parse(parts[1]);
+                          year = int.parse(parts[2]);
+                        }
+                        if (year < 100) year += 2000;
+                        date = DateTime(year, month, day);
+                        break;
+                      } catch (_) {}
+                    }
+                  }
+                }
+                date ??= DateTime.tryParse(dateStr);
               }
             }
-            
-            // Final fallback to DateTime.tryParse (ISO format)
-            date ??= DateTime.tryParse(dateStr);
-          }
-        } catch (_) {}
+          } catch (_) {}
 
-        final productCode =
-              _extractCellValue(row[1]?.value)?.toString().trim() ?? '';
-          final factory =
-              _extractCellValue(
-                row[2]?.value,
-              )?.toString().trim().toUpperCase() ??
-              '';
-
+          final factory = _extractCellValue(row[2]?.value)?.toString().trim().toUpperCase() ?? '';
           final quantityCell = row[3];
-
-          // Safer Column E Access
-          dynamic holeQtyCell;
-          if (row.length > 4) {
-            holeQtyCell = row[4];
-          }
+          dynamic holeQtyCell = row.length > 4 ? row[4] : null;
 
           int quantity = _parseQuantity(quantityCell);
           int holeQty = _parseQuantity(holeQtyCell);
 
-          if (productCode.isNotEmpty) {
-            productionItems.add(
-              ScrapUploadItem(
-                date: date,
-                productCode: productCode,
-                factory: factory,
-                quantity: quantity,
-                holeQty: holeQty,
-              ),
-            );
-          }
+          productionItems.add(
+            ScrapUploadItem(
+              date: date,
+              productCode: productCode,
+              factory: factory,
+              quantity: quantity,
+              holeQty: holeQty,
+            ),
+          );
         }
       }
 
@@ -139,7 +142,7 @@ class ScrapAnalysisNotifier extends Notifier<ScrapAnalysisState> {
     }
   }
 
-  Future<void> fetchDashboardData(DateTime date, {bool forceCalculate = false}) async {
+  Future<void> fetchDashboardData(DateTime date, {bool forceCalculate = false, int? frenbuUretimAdeti}) async {
     state = state.copyWith(isLoading: true, error: null);
     try {
       final repository = ref.read(fireAnalizRepositoryProvider);
@@ -149,11 +152,15 @@ class ScrapAnalysisNotifier extends Notifier<ScrapAnalysisState> {
       
       final FireAnalizDetayDto detayDto;
       if (forceCalculate) {
-        // Trigger calculation (POST /api/fire-analiz/hesapla)
-        detayDto = await repository.hesapla(dateStr);
+        detayDto = await repository.hesapla(dateStr, frenbuUretimAdeti: frenbuUretimAdeti);
       } else {
-        // Just fetch details (GET /api/fire-analiz/{date})
         detayDto = await repository.getDetayByTarih(dateStr);
+      }
+
+      // Handle 404/Empty analysis (represented by id=0)
+      if (detayDto.id == 0) {
+        state = state.copyWith(isLoading: false, dashboardData: null);
+        return;
       }
 
       final frenbuTable = <ScrapTableItem>[];
@@ -226,6 +233,18 @@ class ScrapAnalysisNotifier extends Notifier<ScrapAnalysisState> {
             );
           }
         }
+      }
+      
+      final int totalUrun = detayDto.urunDetaylari.length;
+      final int matchedUrun = frenbuTable.length + frenbuClean.length + d2Table.length + d2Clean.length + d3Table.length + d3Clean.length;
+
+      if (totalUrun > 0 && matchedUrun == 0) {
+        final List<int> distinctSegments = detayDto.urunDetaylari.map((e) => e.segment).toSet().toList();
+        state = state.copyWith(
+          isLoading: false, 
+          error: 'Veri eşleştirme hatası: Gelen $totalUrun ürün kaydının hiçbiri (1:Frenbu, 2:D2, 3:D3) segmentlerine uymuyor. Gelen segmentler: $distinctSegments. Lütfen backend segment tanımlarını kontrol edin.'
+        );
+        return;
       }
 
       // Populate Distribution
@@ -300,8 +319,8 @@ class ScrapAnalysisNotifier extends Notifier<ScrapAnalysisState> {
       );
 
       state = state.copyWith(isLoading: false, dashboardData: dashboardData);
-    } catch (e) {
-      state = state.copyWith(isLoading: false, error: 'Hesaplama verisi alınamadı: $e');
+    } catch (e, s) {
+      state = state.copyWith(isLoading: false, error: 'Hesaplama verisi alınamadı: $e\n$s');
     }
   }
 
@@ -311,6 +330,7 @@ class ScrapAnalysisNotifier extends Notifier<ScrapAnalysisState> {
     if (val is DoubleCellValue) return val.value;
     if (val is TextCellValue) return val.value;
     if (val is DateCellValue) return val.asDateTimeLocal;
+    if (val is DateTimeCellValue) return val.asDateTimeLocal;
     return val;
   }
 

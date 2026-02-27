@@ -32,6 +32,14 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
 
   @override
   Widget build(BuildContext context) {
+    ref.listen<ScrapAnalysisState>(scrapAnalysisProvider, (previous, next) {
+      if (next.error != null && next.error != previous?.error) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(next.error!), backgroundColor: AppColors.error),
+        );
+      }
+    });
+
     final state = ref.watch(scrapAnalysisProvider);
     final data = state.dashboardData;
 
@@ -71,8 +79,8 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
           },
           body: state.isLoading
               ? const Center(child: CircularProgressIndicator())
-              : data == null
-              ? _buildEmptyState()
+              : (data == null || state.error != null)
+              ? _buildErrorOrEmptyState(state)
               : TabBarView(
                   children: [
                     _buildOverviewTab(data),
@@ -244,7 +252,7 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
     );
   }
 
-  Widget _buildEmptyState() {
+  Widget _buildErrorOrEmptyState(ScrapAnalysisState state) {
     return Container(
       padding: const EdgeInsets.all(40),
       decoration: BoxDecoration(
@@ -252,73 +260,86 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: AppColors.border),
       ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(
-            LucideIcons.fileSpreadsheet,
-            size: 64,
-            color: AppColors.textSecondary.withValues(alpha: 0.3),
-          ),
-          const SizedBox(height: 16),
-          const Text(
-            'Analiz sonucunu görüntülemek için \'Üretim Verisi Girişi\' sekmesinden veri yükleyiniz.',
-            style: TextStyle(color: AppColors.textSecondary, fontSize: 16),
-            textAlign: TextAlign.center,
-          ),
-          const SizedBox(height: 32),
-          // Date Picker in Empty State
-          Container(
-            decoration: BoxDecoration(
-              color: AppColors.background,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.border),
+      child: SingleChildScrollView(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              state.error != null ? LucideIcons.alertCircle : LucideIcons.fileSpreadsheet,
+              size: 64,
+              color: state.error != null ? AppColors.error : AppColors.textSecondary.withValues(alpha: 0.3),
             ),
-            child: TextButton.icon(
-              onPressed: () async {
-                final picked = await showDatePicker(
-                  context: context,
-                  initialDate: _selectedFilterDate ?? DateTime.now(),
-                  firstDate: DateTime(2020),
-                  lastDate: DateTime.now(),
-                  builder: (context, child) {
-                    return Theme(
-                      data: Theme.of(context).copyWith(
-                        colorScheme: const ColorScheme.dark(
-                          primary: AppColors.primary,
-                          onPrimary: Colors.white,
-                          surface: AppColors.surface,
-                          onSurface: AppColors.textMain,
-                        ),
-                        dialogTheme: const DialogThemeData(
-                          backgroundColor: AppColors.surface,
-                        ),
-                      ),
-                      child: child!,
-                    );
-                  },
-                );
-                if (picked != null) {
-                  setState(() {
-                    _selectedFilterDate = picked;
-                  });
-                  ref.read(scrapAnalysisProvider.notifier).fetchDashboardData(picked);
-                }
-              },
-              icon: const Icon(
-                LucideIcons.calendar,
-                color: AppColors.textSecondary,
-                size: 18,
+            const SizedBox(height: 16),
+            Text(
+              state.error ?? 'Analiz sonucunu görüntülemek için \'Üretim Verisi Girişi\' sekmesinden veri yükleyiniz.',
+              style: TextStyle(color: state.error != null ? AppColors.error : AppColors.textSecondary, fontSize: 16),
+              textAlign: TextAlign.center,
+            ),
+            if (state.error != null) ...[
+               const SizedBox(height: 24),
+               ElevatedButton.icon(
+                 onPressed: () {
+                    ref.read(scrapAnalysisProvider.notifier).fetchDashboardData(_selectedFilterDate ?? DateTime.now());
+                 },
+                 icon: const Icon(LucideIcons.refreshCcw, size: 18),
+                 label: const Text('Tekrar Dene'),
+                 style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary),
+               ),
+            ],
+            const SizedBox(height: 32),
+            // Date Picker in Empty State
+            Container(
+              decoration: BoxDecoration(
+                color: AppColors.background,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: AppColors.border),
               ),
-              label: Text(
-                _selectedFilterDate != null
-                    ? 'Seçili Tarih: ${DateFormat('dd.MM.yyyy').format(_selectedFilterDate!)}'
-                    : 'Veri Tarihi Seçiniz',
-                style: const TextStyle(color: AppColors.textMain),
+              child: TextButton.icon(
+                onPressed: () async {
+                  final picked = await showDatePicker(
+                    context: context,
+                    initialDate: _selectedFilterDate ?? DateTime.now(),
+                    firstDate: DateTime(2020),
+                    lastDate: DateTime.now(),
+                    builder: (context, child) {
+                      return Theme(
+                        data: Theme.of(context).copyWith(
+                          colorScheme: const ColorScheme.dark(
+                            primary: AppColors.primary,
+                            onPrimary: Colors.white,
+                            surface: AppColors.surface,
+                            onSurface: AppColors.textMain,
+                          ),
+                          dialogTheme: const DialogThemeData(
+                            backgroundColor: AppColors.surface,
+                          ),
+                        ),
+                        child: child!,
+                      );
+                    },
+                  );
+                  if (picked != null) {
+                    setState(() {
+                      _selectedFilterDate = picked;
+                    });
+                    ref.read(scrapAnalysisProvider.notifier).fetchDashboardData(picked);
+                  }
+                },
+                icon: const Icon(
+                  LucideIcons.calendar,
+                  color: AppColors.textSecondary,
+                  size: 18,
+                ),
+                label: Text(
+                  _selectedFilterDate != null
+                      ? 'Seçili Tarih: ${DateFormat('dd.MM.yyyy').format(_selectedFilterDate!)}'
+                      : 'Veri Tarihi Seçiniz',
+                  style: const TextStyle(color: AppColors.textMain),
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -387,7 +408,7 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
 
   Widget _buildKpiCard(
     String title,
-    double rate,
+    num rate,
     int scrapQty,
     int totalQty,
     Color color,
@@ -500,7 +521,7 @@ class _AnalysisScreenState extends ConsumerState<AnalysisScreen> {
           : (item.factory == 'D3' ? AppColors.reworkOrange : AppColors.primary);
       return PieChartSectionData(
         color: color,
-        value: item.rate,
+        value: item.rate.toDouble(),
         title: '${item.rate.toStringAsFixed(1)}%',
         radius: 40,
         titleStyle: const TextStyle(

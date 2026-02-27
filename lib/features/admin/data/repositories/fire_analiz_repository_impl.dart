@@ -8,8 +8,8 @@ class FireAnalizRepositoryImpl implements IFireAnalizRepository {
   FireAnalizRepositoryImpl(this._remoteDataSource);
 
   @override
-  Future<FireAnalizDetayDto> hesapla(String analizTarihi) async {
-    return await _remoteDataSource.hesapla(analizTarihi);
+  Future<FireAnalizDetayDto> hesapla(String analizTarihi, {int? frenbuUretimAdeti}) async {
+    return await _remoteDataSource.hesapla(analizTarihi, frenbuUretimAdeti: frenbuUretimAdeti);
   }
 
   @override

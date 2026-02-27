@@ -7,12 +7,13 @@ class FireAnalizRemoteDataSource {
   FireAnalizRemoteDataSource(this._dioClient);
 
   /// Excel veya form verisi sonrası analizi hesaplamak için kullanılır
-  Future<FireAnalizDetayDto> hesapla(String analizTarihi) async {
+  Future<FireAnalizDetayDto> hesapla(String analizTarihi, {int? frenbuUretimAdeti}) async {
     try {
       final response = await _dioClient.post(
         'fire-analiz/hesapla',
         data: {
           'analizTarihi': analizTarihi,
+          if (frenbuUretimAdeti != null) 'frenbuUretimAdeti': frenbuUretimAdeti,
         },
       );
       
@@ -30,6 +31,12 @@ class FireAnalizRemoteDataSource {
       );
       
       return FireAnalizDetayDto.fromJson(response.data['data']);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) {
+        // Return a default empty DTO if no analysis exists for this date
+        return const FireAnalizDetayDto(id: 0);
+      }
+      throw Exception('Fire analiz detayı getirme hatası: ${e.message}');
     } catch (e) {
       throw Exception('Fire analiz detayı getirme hatası: $e');
     }

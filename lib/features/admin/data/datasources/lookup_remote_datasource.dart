@@ -48,8 +48,8 @@ class LookupRemoteDataSource {
     return {};
   }
 
-  Future<void> delete(String endpoint, int id) async {
-    // Soft delete using PUT request
-    await _dio.put('${ApiConstants.lookupBase}/$endpoint/$id', data: {'isActive': false});
+  Future<void> delete(String endpoint, int id, Map<String, dynamic> data) async {
+    // Soft delete using PUT request with full object including isActive: false
+    await _dio.put('${ApiConstants.lookupBase}/$endpoint/$id', data: data);
   }
 }

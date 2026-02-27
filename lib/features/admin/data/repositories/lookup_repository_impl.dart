@@ -22,7 +22,7 @@ class LookupRepositoryImpl implements ILookupRepository {
   }
 
   @override
-  Future<void> delete(String endpoint, int id) {
-    return _remoteDataSource.delete(endpoint, id);
+  Future<void> delete(String endpoint, int id, Map<String, dynamic> data) {
+    return _remoteDataSource.delete(endpoint, id, data);
   }
 }
