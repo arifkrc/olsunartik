@@ -261,13 +261,26 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               // Büyük Hoşgeldin yazısı
-                              Text(
-                                'Hoşgeldin, Operatör',
-                                style: TextStyle(
-                                  color: AppColors.textMain,
-                                  fontSize: 28,
-                                  fontWeight: FontWeight.w700,
-                                ),
+                              Consumer(
+                                builder: (context, ref, _) {
+                                  final userAsync =
+                                      ref.watch(currentUserProvider);
+                                  final displayName = userAsync.maybeWhen(
+                                    data: (user) =>
+                                        user?.personelAdi??
+                                        user?.kullaniciAdi ??
+                                        'Operatör',
+                                    orElse: () => 'Operatör',
+                                  );
+                                  return Text(
+                                    'Hoşgeldin, $displayName',
+                                    style: const TextStyle(
+                                      color: AppColors.textMain,
+                                      fontSize: 28,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  );
+                                },
                               ),
                               const SizedBox(height: 8),
                               Text(

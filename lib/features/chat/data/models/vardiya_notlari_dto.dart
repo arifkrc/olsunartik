@@ -37,7 +37,11 @@ class VardiyaNotuDto {
       kullaniciAdi: json['kullaniciAdi'] as String? ?? '',
       personelAdi: json['personelAdi'] as String? ?? '',
       olusturmaZamani: DateTime.parse(json['olusturmaZamani'] as String),
-      guncellemeZamani: DateTime.parse(json['guncellemeZamani'] as String),
+      // guncellemeZamani is null for newly created notes (backend only sets it on edits).
+      // Fall back to olusturmaZamani so the field is never null in the app.
+      guncellemeZamani: json['guncellemeZamani'] != null
+          ? DateTime.parse(json['guncellemeZamani'] as String)
+          : DateTime.parse(json['olusturmaZamani'] as String),
     );
   }
 }

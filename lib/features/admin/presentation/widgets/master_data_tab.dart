@@ -16,6 +16,11 @@ class MasterDataTab extends ConsumerStatefulWidget {
   ConsumerState<MasterDataTab> createState() => _MasterDataTabState();
 }
 
+/// Filter values: 'all' | 'active' | 'passive'
+const _kStatusAll = 'all';
+const _kStatusActive = 'active';
+const _kStatusPassive = 'passive';
+
 class _MasterDataTabState extends ConsumerState<MasterDataTab> {
   String _searchQuery = '';
 
@@ -45,6 +50,7 @@ class _MasterDataTabState extends ConsumerState<MasterDataTab> {
       ),
       data: (allItems) {
         final filteredItems = allItems.where((item) {
+          // Search filter only — isActive filtering is done server-side
           if (_searchQuery.isEmpty) return true;
           return item.code.toLowerCase().contains(_searchQuery.toLowerCase()) ||
               (item.description?.toLowerCase().contains(
@@ -142,8 +148,11 @@ class _MasterDataTabState extends ConsumerState<MasterDataTab> {
         ),
       ),
       child: InkWell(
-        onTap: () =>
-            ref.read(selectedCategoryProvider.notifier).setCategory(category),
+        onTap: () {
+          ref.read(selectedCategoryProvider.notifier).setCategory(category);
+          // Reset filter to "all" when switching categories
+          ref.read(statusFilterProvider.notifier).state = _kStatusAll;
+        },
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
@@ -218,6 +227,9 @@ class _MasterDataTabState extends ConsumerState<MasterDataTab> {
             ],
           ),
           const Spacer(),
+          // Status filter chips
+          _buildStatusFilter(),
+          const SizedBox(width: 16),
           // Search
           Container(
             width: 280,
@@ -454,6 +466,64 @@ class _MasterDataTabState extends ConsumerState<MasterDataTab> {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildStatusFilter() {
+    const options = [
+      (_kStatusAll, 'Tümü'),
+      (_kStatusActive, 'Aktif'),
+      (_kStatusPassive, 'Pasif'),
+    ];
+    final currentFilter = ref.watch(statusFilterProvider);
+    return Row(
+      children: options.map((opt) {
+        final (value, label) = opt;
+        final isSelected = currentFilter == value;
+        Color chipColor;
+        if (!isSelected) {
+          chipColor = AppColors.surface;
+        } else if (value == _kStatusActive) {
+          chipColor = AppColors.duzceGreen;
+        } else if (value == _kStatusPassive) {
+          chipColor = AppColors.textSecondary;
+        } else {
+          chipColor = AppColors.primary;
+        }
+        return Padding(
+          padding: const EdgeInsets.only(right: 8),
+          child: InkWell(
+            onTap: () =>
+                ref.read(statusFilterProvider.notifier).state = value,
+            borderRadius: BorderRadius.circular(20),
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              padding:
+                  const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
+              decoration: BoxDecoration(
+                color: isSelected
+                    ? chipColor.withValues(alpha: 0.18)
+                    : AppColors.surface,
+                borderRadius: BorderRadius.circular(20),
+                border: Border.all(
+                  color: isSelected ? chipColor : AppColors.border,
+                  width: isSelected ? 1.5 : 1,
+                ),
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  color: isSelected ? chipColor : AppColors.textSecondary,
+                  fontSize: 13,
+                  fontWeight: isSelected
+                      ? FontWeight.bold
+                      : FontWeight.normal,
+                ),
+              ),
+            ),
+          ),
+        );
+      }).toList(),
     );
   }
 

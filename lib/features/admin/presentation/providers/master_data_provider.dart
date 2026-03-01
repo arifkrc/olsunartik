@@ -17,13 +17,22 @@ class MasterDataNotifier extends AsyncNotifier<List<MasterDataItem>> {
   @override
   Future<List<MasterDataItem>> build() async {
     final category = ref.watch(selectedCategoryProvider);
-    return _fetchData(category);
+    final statusFilter = ref.watch(statusFilterProvider);
+    final bool? isActive = statusFilter == 'active'
+        ? true
+        : statusFilter == 'passive'
+            ? false
+            : null; // null → no filter → backend returns all
+    return _fetchData(category, isActive: isActive);
   }
 
-  Future<List<MasterDataItem>> _fetchData(String category) async {
+  Future<List<MasterDataItem>> _fetchData(
+    String category, {
+    bool? isActive,
+  }) async {
     final repository = ref.read(lookupRepositoryProvider);
     try {
-      final rawData = await repository.getAll(category);
+      final rawData = await repository.getAll(category, isActive: isActive);
       return rawData.map((json) => _mapJsonToMasterDataItem(category, json)).toList();
     } catch (e) {
       throw Exception('Veri yüklenemedi: $e');
@@ -240,6 +249,9 @@ final selectedCategoryProvider =
     NotifierProvider<SelectedCategoryNotifier, String>(() {
       return SelectedCategoryNotifier();
     });
+
+// Status filter: 'all' | 'active' | 'passive'
+final statusFilterProvider = StateProvider<String>((ref) => 'all');
 
 // Filters are calculated within the UI now as the provider returns the list for the current category directly
 final filteredMasterDataProvider = Provider<List<MasterDataItem>>((ref) {

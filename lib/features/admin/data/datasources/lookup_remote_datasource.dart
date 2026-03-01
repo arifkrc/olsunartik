@@ -6,8 +6,16 @@ class LookupRemoteDataSource {
 
   LookupRemoteDataSource(this._dio);
 
-  Future<List<Map<String, dynamic>>> getAll(String endpoint) async {
-    final response = await _dio.get('${ApiConstants.lookupBase}/$endpoint');
+  Future<List<Map<String, dynamic>>> getAll(
+    String endpoint, {
+    bool? isActive,
+  }) async {
+    final queryParams = <String, dynamic>{};
+    if (isActive != null) queryParams['isActive'] = isActive;
+    final response = await _dio.get(
+      '${ApiConstants.lookupBase}/$endpoint',
+      queryParameters: queryParams.isEmpty ? null : queryParams,
+    );
     
     // Check if the response is a standard Map wrapping a 'data' array
     if (response.data is Map<String, dynamic>) {

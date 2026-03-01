@@ -7,8 +7,8 @@ class LookupRepositoryImpl implements ILookupRepository {
   LookupRepositoryImpl(this._remoteDataSource);
 
   @override
-  Future<List<Map<String, dynamic>>> getAll(String endpoint) {
-    return _remoteDataSource.getAll(endpoint);
+  Future<List<Map<String, dynamic>>> getAll(String endpoint, {bool? isActive}) {
+    return _remoteDataSource.getAll(endpoint, isActive: isActive);
   }
 
   @override

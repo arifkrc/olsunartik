@@ -281,19 +281,48 @@ class _ShiftNotesScreenState extends ConsumerState<ShiftNotesScreen> {
                                                       Padding(
                                                         padding:
                                                             const EdgeInsets.only(
-                                                              bottom: 2,
+                                                              bottom: 4,
                                                             ),
-                                                        child: Text(
-                                                          senderName,
-                                                          style: TextStyle(
-                                                            fontSize: 11,
-                                                            fontWeight:
-                                                                FontWeight.bold,
-                                                            color: Colors.white
-                                                                .withValues(
-                                                                  alpha: 0.8,
+                                                        child: Column(
+                                                          crossAxisAlignment:
+                                                              CrossAxisAlignment
+                                                                  .start,
+                                                          children: [
+                                                            // Primary: personelAdi (real name)
+                                                            Text(
+                                                              msg.personelAdi.isNotEmpty
+                                                                  ? msg.personelAdi
+                                                                  : msg.kullaniciAdi,
+                                                              style: TextStyle(
+                                                                fontSize: 12,
+                                                                fontWeight:
+                                                                    FontWeight.bold,
+                                                                color: Colors.white
+                                                                    .withValues(
+                                                                      alpha: 0.9,
+                                                                    ),
+                                                              ),
+                                                            ),
+                                                            // Secondary: @kullaniciAdi — only shown when different from personelAdi
+                                                            if (msg.personelAdi.isNotEmpty &&
+                                                                msg.kullaniciAdi.isNotEmpty &&
+                                                                msg.personelAdi != msg.kullaniciAdi)
+                                                              Text(
+                                                                '@${msg.kullaniciAdi}',
+                                                                style: TextStyle(
+                                                                  fontSize: 10,
+                                                                  fontWeight:
+                                                                      FontWeight
+                                                                          .w400,
+                                                                  color: Colors
+                                                                      .white
+                                                                      .withValues(
+                                                                        alpha:
+                                                                            0.45,
+                                                                      ),
                                                                 ),
-                                                          ),
+                                                              ),
+                                                          ],
                                                         ),
                                                       ),
                                                     Text(
